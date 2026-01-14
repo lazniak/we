@@ -12,6 +12,7 @@ build/
 # Database and uploads
 backend/data/
 backend/uploads/
+uploads/
 *.db
 *.db-journal
 
