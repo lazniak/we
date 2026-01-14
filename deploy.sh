@@ -151,18 +151,20 @@ else
 fi
 
 # Create PM2 ecosystem file
-cat > /var/www/we/ecosystem.config.js << 'EOF'
+BUN_PATH=$(which bun || echo "/root/.bun/bin/bun")
+cat > /var/www/we/ecosystem.config.js << EOF
 module.exports = {
   apps: [
     {
       name: 'we-backend',
       cwd: '/var/www/we/backend',
-      script: 'bun',
+      script: '${BUN_PATH}',
       args: 'run start',
       interpreter: 'none',
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
+        PATH: '/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
       },
       error_file: '/var/www/we/logs/backend-error.log',
       out_file: '/var/www/we/logs/backend-out.log',
@@ -179,6 +181,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
+        PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
       },
       error_file: '/var/www/we/logs/frontend-error.log',
       out_file: '/var/www/we/logs/frontend-out.log',
@@ -193,10 +196,11 @@ EOF
 
 # Start/restart PM2
 cd /var/www/we
-pm2 delete all 2>/dev/null || true
+# Only delete our apps, not all apps!
+pm2 delete we-backend we-frontend 2>/dev/null || true
 pm2 start ecosystem.config.js
 pm2 save
-pm2 startup systemd -u root --hp /root || true
+# Don't run pm2 startup if already configured
 
 echo -e "${GREEN}✅ Deployment complete!${NC}"
 echo -e "${GREEN}Check status: pm2 status${NC}"
