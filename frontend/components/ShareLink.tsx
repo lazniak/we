@@ -28,9 +28,9 @@ export default function ShareLink({ shareUrl, expiresAt, isUploading }: ShareLin
   };
   
   return (
-    <div className="w-full max-w-xl mx-auto animate-fade-in">
+    <div className="w-full max-w-xl mx-auto px-4 animate-fade-in">
       <div className={clsx(
-        'rounded-2xl p-5',
+        'rounded-2xl p-4 sm:p-5',
         isUploading ? 'glass-accent' : 'glass'
       )}>
         <div className="flex items-center gap-2 mb-3">
@@ -42,9 +42,9 @@ export default function ShareLink({ shareUrl, expiresAt, isUploading }: ShareLin
           </span>
         </div>
         
-        <div className="flex items-stretch gap-2">
-          <div className="flex-1 flex items-center bg-white/[0.02] rounded-xl px-4 py-3 border border-white/5">
-            <span className="text-white/70 text-sm truncate font-mono">
+        <div className="flex flex-col sm:flex-row items-stretch gap-2">
+          <div className="flex-1 flex items-center bg-white/[0.02] rounded-xl px-4 py-3 border border-white/5 min-w-0">
+            <span className="text-white/70 text-sm truncate font-mono w-full">
               {fullUrl}
             </span>
           </div>
@@ -52,7 +52,7 @@ export default function ShareLink({ shareUrl, expiresAt, isUploading }: ShareLin
           <button
             onClick={handleCopy}
             className={clsx(
-              'px-5 rounded-xl font-medium text-sm transition-all duration-200 flex items-center gap-2',
+              'px-5 py-3 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 shrink-0',
               copied 
                 ? 'bg-accent/20 text-accent-light border border-accent/30'
                 : 'btn-primary'

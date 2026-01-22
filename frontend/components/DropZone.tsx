@@ -323,7 +323,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
   const isOverSize = totalSize > MAX_SIZE;
 
   return (
-    <div className="w-full max-w-xl mx-auto space-y-4">
+    <div className="w-full max-w-xl mx-auto space-y-4 px-4">
       {/* Expiration Days Selector */}
       <div className="glass rounded-2xl p-4 animate-fade-in">
         <div className="flex items-center justify-between">

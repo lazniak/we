@@ -64,8 +64,8 @@ export default function TransferHistory() {
   if (history.length === 0) return null;
 
   return (
-    <div className="w-full max-w-xl mx-auto mt-6 animate-fade-in">
-      <div className="glass rounded-2xl p-4">
+    <div className="w-full max-w-xl mx-auto mt-6 px-4 animate-fade-in">
+      <div className="glass rounded-2xl p-3 sm:p-4">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs text-white/40 uppercase tracking-wider">Recent transfers</span>
           <span className="text-xs text-white/30">{history.length}</span>

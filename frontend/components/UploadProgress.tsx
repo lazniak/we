@@ -18,8 +18,8 @@ export default function UploadProgress({ state }: UploadProgressProps) {
   const isError = phase === 'error';
   
   return (
-    <div className="w-full max-w-xl mx-auto animate-fade-in">
-      <div className="glass rounded-2xl p-6">
+    <div className="w-full max-w-xl mx-auto px-4 animate-fade-in">
+      <div className="glass rounded-2xl p-4 sm:p-6">
         {/* Status Icon */}
         <div className="flex justify-center mb-5">
           <div className={clsx(
