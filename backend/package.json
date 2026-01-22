@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "hono": "^4.6.0",
+    "jszip": "^3.10.1",
     "nanoid": "^5.0.7"
   },
   "devDependencies": {
