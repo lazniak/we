@@ -227,7 +227,6 @@ transferRoutes.get('/:id/download', async (c) => {
   // Increment download count
   incrementDownloadCount(id);
   
-  const file = Bun.file(filePath);
   const filename = transfer.filename.endsWith('.zip') 
     ? transfer.filename 
     : `${transfer.filename}.zip`;
