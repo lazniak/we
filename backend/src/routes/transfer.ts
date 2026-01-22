@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
-import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync, unlinkSync, createWriteStream } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync, unlinkSync, createWriteStream, createReadStream } from 'fs';
 import { join } from 'path';
 import { 
   createTransfer, 
@@ -232,10 +232,15 @@ transferRoutes.get('/:id/download', async (c) => {
     ? transfer.filename 
     : `${transfer.filename}.zip`;
   
-  // Get file size
-  const fileSize = await file.size;
+  // Get file size using fs.statSync for accurate size
+  const { statSync } = await import('fs');
+  const stats = statSync(filePath);
+  const fileSize = stats.size;
   
-  // Set headers and return file
+  // Create read stream for large files
+  const fileStream = createReadStream(filePath);
+  
+  // Set headers
   c.header('Content-Type', 'application/zip');
   c.header('Content-Disposition', `attachment; filename="${filename}"`);
   c.header('Content-Length', String(fileSize));
@@ -243,5 +248,6 @@ transferRoutes.get('/:id/download', async (c) => {
   c.header('Pragma', 'no-cache');
   c.header('Expires', '0');
   
-  return c.body(file);
+  // Return stream using c.body() with stream
+  return c.body(fileStream);
 });
