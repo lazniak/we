@@ -232,11 +232,16 @@ transferRoutes.get('/:id/download', async (c) => {
     ? transfer.filename 
     : `${transfer.filename}.zip`;
   
-  return new Response(file, {
-    headers: {
-      'Content-Type': 'application/zip',
-      'Content-Disposition': `attachment; filename="${filename}"`,
-      'Content-Length': String(await file.size),
-    },
-  });
+  // Get file size
+  const fileSize = await file.size;
+  
+  // Set headers and return file
+  c.header('Content-Type', 'application/zip');
+  c.header('Content-Disposition', `attachment; filename="${filename}"`);
+  c.header('Content-Length', String(fileSize));
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  c.header('Pragma', 'no-cache');
+  c.header('Expires', '0');
+  
+  return c.body(file);
 });
