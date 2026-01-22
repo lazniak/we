@@ -21,10 +21,10 @@ async function processDirectoryEntry(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const reader = entry.createReader();
-    const entries: (FileSystemFileEntry | FileSystemDirectoryEntry)[] = [];
+    const entries: FileSystemEntry[] = [];
     
     const readEntries = () => {
-      reader.readEntries((batch) => {
+      reader.readEntries((batch: FileSystemEntry[]) => {
         if (batch.length === 0) {
           // All entries read, process them
           Promise.all(
@@ -52,6 +52,7 @@ async function processDirectoryEntry(
                 const newPath = basePath ? `${basePath}/${dirEntry.name}` : dirEntry.name;
                 return processDirectoryEntry(dirEntry, zip, newPath, onProgress, totalFiles, processedFiles);
               }
+              return Promise.resolve();
             })
           ).then(() => resolve()).catch(reject);
         } else {
