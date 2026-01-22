@@ -25,14 +25,17 @@ export const transferRoutes = new Hono();
 transferRoutes.post('/init', async (c) => {
   try {
     const body = await c.req.json();
-    const { filename, totalSize, chunksTotal } = body;
+    const { filename, totalSize, chunksTotal, expirationDays } = body;
     
     if (!filename || !totalSize || !chunksTotal) {
       return c.json({ error: 'Missing required fields' }, 400);
     }
     
+    // Validate expiration days (3-7 days)
+    const days = Math.max(3, Math.min(7, expirationDays || 3));
+    
     const transferId = nanoid(12);
-    const transfer = createTransfer(transferId, filename, totalSize, chunksTotal);
+    const transfer = createTransfer(transferId, filename, totalSize, chunksTotal, days);
     
     // Create chunks directory
     const chunksDir = join(UPLOADS_DIR, `${transferId}_chunks`);

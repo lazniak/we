@@ -28,7 +28,7 @@ export default function HomePage() {
   const [state, setState] = useState<UploadState>(initialState);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
 
-  const handleFilesSelected = useCallback(async (files: File[]) => {
+  const handleFilesSelected = useCallback(async (files: File[], expirationDays: number) => {
     try {
       const filename = `${generateZipFilename(files)}.zip`;
       
@@ -56,6 +56,7 @@ export default function HomePage() {
           filename,
           totalSize: estimatedSize,
           chunksTotal: estimatedChunks,
+          expirationDays,
         }),
       });
 

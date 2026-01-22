@@ -68,8 +68,8 @@ export function initDb() {
 }
 
 // Transfer operations
-export function createTransfer(id: string, filename: string, totalSize: number, chunksTotal: number): Transfer {
-  const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(); // 3 days
+export function createTransfer(id: string, filename: string, totalSize: number, chunksTotal: number, expirationDays: number = 3): Transfer {
+  const expiresAt = new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000).toISOString();
   
   db.run(`
     INSERT INTO transfers (id, filename, total_size, chunks_total, expires_at, status)
