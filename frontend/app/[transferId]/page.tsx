@@ -225,7 +225,7 @@ export default function TransferPage() {
                   </div>
                   
                   {/* File list with previews */}
-                  <div className="space-y-2 mb-5 max-h-80 overflow-y-auto custom-scrollbar">
+                  <div className="space-y-1.5 mb-5 max-h-72 overflow-y-auto overflow-x-hidden pr-1 -mr-1">
                     {transfer.files.map((file) => (
                       <FilePreview
                         key={file.id}
