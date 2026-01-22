@@ -31,6 +31,18 @@ export interface Stats {
   updated_at: string;
 }
 
+export interface TransferFile {
+  id: number;
+  transfer_id: string;
+  filename: string;
+  original_filename: string;
+  size: number;
+  mime_type: string;
+  thumbnail_path?: string;
+  file_path: string;
+  created_at: string;
+}
+
 export function initDb() {
   // Create transfers table
   db.run(`
@@ -57,6 +69,25 @@ export function initDb() {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Create transfer_files table for multi-file support
+  db.run(`
+    CREATE TABLE IF NOT EXISTS transfer_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transfer_id TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      original_filename TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      mime_type TEXT,
+      thumbnail_path TEXT,
+      file_path TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (transfer_id) REFERENCES transfers(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create index for faster lookups
+  db.run(`CREATE INDEX IF NOT EXISTS idx_transfer_files_transfer_id ON transfer_files(transfer_id)`);
 
   // Initialize stats row if not exists
   const stats = db.query('SELECT * FROM stats WHERE id = 1').get();
@@ -142,4 +173,32 @@ export function getActiveTransfersCount(): number {
     WHERE status IN ('pending', 'uploading')
   `).get() as { count: number };
   return result.count;
+}
+
+// Transfer files operations
+export function addTransferFile(
+  transferId: string,
+  filename: string,
+  originalFilename: string,
+  size: number,
+  filePath: string,
+  mimeType?: string,
+  thumbnailPath?: string
+): TransferFile {
+  db.run(`
+    INSERT INTO transfer_files (transfer_id, filename, original_filename, size, mime_type, thumbnail_path, file_path)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `, [transferId, filename, originalFilename, size, mimeType || null, thumbnailPath || null, filePath]);
+  
+  return db.query('SELECT * FROM transfer_files WHERE transfer_id = ? AND filename = ? ORDER BY id DESC LIMIT 1')
+    .get(transferId, filename) as TransferFile;
+}
+
+export function getTransferFiles(transferId: string): TransferFile[] {
+  return db.query('SELECT * FROM transfer_files WHERE transfer_id = ? ORDER BY id ASC')
+    .all(transferId) as TransferFile[];
+}
+
+export function deleteTransferFiles(transferId: string): void {
+  db.run('DELETE FROM transfer_files WHERE transfer_id = ?', [transferId]);
 }

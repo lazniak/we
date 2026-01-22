@@ -7,7 +7,10 @@ import {
   getTransfer, 
   updateTransferProgress, 
   completeTransfer,
-  incrementDownloadCount 
+  incrementDownloadCount,
+  addTransferFile,
+  getTransferFiles,
+  deleteTransferFiles
 } from '../db';
 import { broadcastProgress } from '../websocket';
 
@@ -25,7 +28,7 @@ export const transferRoutes = new Hono();
 transferRoutes.post('/init', async (c) => {
   try {
     const body = await c.req.json();
-    const { filename, totalSize, chunksTotal, expirationDays } = body;
+    const { filename, totalSize, chunksTotal, expirationDays, files, isZip } = body;
     
     if (!filename || !totalSize || !chunksTotal) {
       return c.json({ error: 'Missing required fields' }, 400);
@@ -41,13 +44,20 @@ transferRoutes.post('/init', async (c) => {
     const chunksDir = join(UPLOADS_DIR, `${transferId}_chunks`);
     mkdirSync(chunksDir, { recursive: true });
     
-    console.log(`📤 Transfer initiated: ${transferId} (${filename}, ${(totalSize / 1024 / 1024).toFixed(2)} MB)`);
+    // If not ZIP and we have file list, create directory for individual files
+    if (!isZip && files && Array.isArray(files)) {
+      const filesDir = join(UPLOADS_DIR, transferId);
+      mkdirSync(filesDir, { recursive: true });
+    }
+    
+    console.log(`📤 Transfer initiated: ${transferId} (${filename}, ${(totalSize / 1024 / 1024).toFixed(2)} MB, ${isZip ? 'ZIP' : 'multi-file'})`);
     
     return c.json({
       transferId,
       uploadUrl: `/api/transfer/${transferId}/chunk`,
       shareUrl: `/${transferId}`,
       expiresAt: transfer.expires_at,
+      isZip: isZip || false,
     });
   } catch (error) {
     console.error('Init error:', error);
@@ -107,8 +117,8 @@ transferRoutes.put('/:id/chunk/:chunkIndex', async (c) => {
   }
 });
 
-// Complete the transfer - merge chunks
-transferRoutes.post('/:id/complete', async (c) => {
+// Upload single file (non-chunked, for <10 files)
+transferRoutes.post('/:id/file', async (c) => {
   try {
     const { id } = c.req.param();
     const transfer = getTransfer(id);
@@ -117,39 +127,112 @@ transferRoutes.post('/:id/complete', async (c) => {
       return c.json({ error: 'Transfer not found' }, 404);
     }
     
-    const chunksDir = join(UPLOADS_DIR, `${id}_chunks`);
-    const outputPath = join(UPLOADS_DIR, `${id}.zip`);
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File;
+    const filename = formData.get('filename') as string;
+    const originalFilename = formData.get('originalFilename') as string || filename;
     
-    // Read and sort chunk files
-    const chunkFiles = readdirSync(chunksDir)
-      .filter(f => f.startsWith('chunk_'))
-      .sort();
-    
-    // Merge chunks into final file
-    const writeStream = createWriteStream(outputPath);
-    
-    for (const chunkFile of chunkFiles) {
-      const chunkPath = join(chunksDir, chunkFile);
-      const chunkData = readFileSync(chunkPath);
-      writeStream.write(chunkData);
-      unlinkSync(chunkPath); // Delete chunk after merging
+    if (!file || !filename) {
+      return c.json({ error: 'Missing file or filename' }, 400);
     }
     
-    writeStream.end();
+    // Save file
+    const filesDir = join(UPLOADS_DIR, id);
+    mkdirSync(filesDir, { recursive: true });
+    const filePath = join(filesDir, filename);
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    writeFileSync(filePath, fileBuffer);
     
-    // Wait for write to complete
-    await new Promise<void>((resolve, reject) => {
-      writeStream.on('finish', resolve);
-      writeStream.on('error', reject);
+    // Detect MIME type
+    const mimeType = file.type || 'application/octet-stream';
+    
+    // Generate thumbnail for images
+    let thumbnailPath: string | undefined;
+    if (mimeType.startsWith('image/')) {
+      try {
+        thumbnailPath = await generateThumbnail(fileBuffer, id, filename);
+      } catch (e) {
+        console.error('Failed to generate thumbnail:', e);
+      }
+    }
+    
+    // Add to database
+    addTransferFile(id, filename, originalFilename, file.size, filePath, mimeType, thumbnailPath);
+    
+    return c.json({ 
+      success: true,
+      filename,
+      size: file.size,
     });
+  } catch (error) {
+    console.error('File upload error:', error);
+    return c.json({ error: 'Failed to upload file' }, 500);
+  }
+});
+
+// Generate thumbnail for image (WebP) - placeholder for now
+// TODO: Implement proper thumbnail generation using sharp or similar
+async function generateThumbnail(imageBuffer: Buffer, transferId: string, filename: string): Promise<string | undefined> {
+  try {
+    // For now, we'll generate thumbnails on the frontend
+    // Backend can store the original image path and frontend will create thumbnails
+    // This is a placeholder - actual implementation would use sharp or canvas
+    return undefined;
+  } catch (e) {
+    console.error('Thumbnail generation error:', e);
+    return undefined;
+  }
+}
+
+// Complete the transfer - merge chunks or finalize multi-file
+transferRoutes.post('/:id/complete', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const body = await c.req.json().catch(() => ({}));
+    const { isZip } = body;
+    const transfer = getTransfer(id);
     
-    // Remove chunks directory
-    try {
-      const { rmSync } = await import('fs');
-      rmSync(chunksDir, { recursive: true, force: true });
-    } catch (e) {
-      // Ignore cleanup errors
+    if (!transfer) {
+      return c.json({ error: 'Transfer not found' }, 404);
     }
+    
+    if (isZip) {
+      // Handle ZIP file - merge chunks
+      const chunksDir = join(UPLOADS_DIR, `${id}_chunks`);
+      const outputPath = join(UPLOADS_DIR, `${id}.zip`);
+      
+      // Read and sort chunk files
+      const chunkFiles = readdirSync(chunksDir)
+        .filter(f => f.startsWith('chunk_'))
+        .sort();
+      
+      // Merge chunks into final file
+      const writeStream = createWriteStream(outputPath);
+      
+      for (const chunkFile of chunkFiles) {
+        const chunkPath = join(chunksDir, chunkFile);
+        const chunkData = readFileSync(chunkPath);
+        writeStream.write(chunkData);
+        unlinkSync(chunkPath); // Delete chunk after merging
+      }
+      
+      writeStream.end();
+      
+      // Wait for write to complete
+      await new Promise<void>((resolve, reject) => {
+        writeStream.on('finish', resolve);
+        writeStream.on('error', reject);
+      });
+      
+      // Remove chunks directory
+      try {
+        const { rmSync } = await import('fs');
+        rmSync(chunksDir, { recursive: true, force: true });
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+    // For multi-file, files are already saved via /file endpoint
     
     // Mark transfer as complete
     const completedTransfer = completeTransfer(id);
@@ -197,15 +280,27 @@ transferRoutes.get('/:id', async (c) => {
     ? Math.round((transfer.chunks_completed / transfer.chunks_total) * 100) 
     : 0;
   
+  // Get files if transfer is ready
+  const files = transfer.status === 'ready' ? getTransferFiles(id) : [];
+  
   return c.json({
     ...transfer,
     progress,
+    files: files.map(f => ({
+      id: f.id,
+      filename: f.original_filename,
+      size: f.size,
+      mimeType: f.mime_type,
+      thumbnailPath: f.thumbnail_path,
+    })),
   });
 });
 
-// Download file
+// Download file (ZIP or single file)
 transferRoutes.get('/:id/download', async (c) => {
   const { id } = c.req.param();
+  const fileId = c.req.query('fileId'); // Optional: download specific file
+  
   const transfer = getTransfer(id);
   
   if (!transfer) {
@@ -221,10 +316,64 @@ transferRoutes.get('/:id/download', async (c) => {
     return c.json({ error: 'This transfer has expired' }, 410);
   }
   
+  // If fileId is provided, download specific file
+  if (fileId) {
+    const files = getTransferFiles(id);
+    const file = files.find(f => f.id.toString() === fileId);
+    
+    if (!file) {
+      return c.json({ error: 'File not found' }, 404);
+    }
+    
+    const filePath = file.file_path;
+    if (!existsSync(filePath)) {
+      return c.json({ error: 'File not found on disk' }, 404);
+    }
+    
+    incrementDownloadCount(id);
+    
+    const { statSync } = await import('fs');
+    const stats = statSync(filePath);
+    const fileSize = stats.size;
+    const fileStream = createReadStream(filePath);
+    
+    // Detect MIME type
+    const mimeType = file.mime_type || 'application/octet-stream';
+    const encodedFilename = encodeURIComponent(file.original_filename);
+    const contentDisposition = `attachment; filename*=UTF-8''${encodedFilename}`;
+    
+    c.header('Content-Type', mimeType);
+    c.header('Content-Disposition', contentDisposition);
+    c.header('Content-Length', String(fileSize));
+    c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    
+    return c.body(fileStream);
+  }
+  
+  // Otherwise download ZIP
   const filePath = join(UPLOADS_DIR, `${id}.zip`);
   
   if (!existsSync(filePath)) {
-    return c.json({ error: 'File not found' }, 404);
+    // If no ZIP, check if we have individual files - create ZIP on the fly
+    const files = getTransferFiles(id);
+    if (files.length > 0) {
+      // Create ZIP from individual files
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      
+      for (const file of files) {
+        if (existsSync(file.file_path)) {
+          const fileData = readFileSync(file.file_path);
+          zip.file(file.original_filename, fileData);
+        }
+      }
+      
+      const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+      const zipPath = join(UPLOADS_DIR, `${id}.zip`);
+      writeFileSync(zipPath, zipBuffer);
+    } else {
+      return c.json({ error: 'File not found' }, 404);
+    }
   }
   
   // Increment download count
@@ -243,8 +392,6 @@ transferRoutes.get('/:id/download', async (c) => {
   const fileStream = createReadStream(filePath);
   
   // Encode filename for proper handling of special characters (Polish, etc.)
-  // Use RFC 5987 encoding for UTF-8 filenames
-  // Only use filename* to avoid issues with special characters in quoted strings
   const encodedFilename = encodeURIComponent(filename);
   const contentDisposition = `attachment; filename*=UTF-8''${encodedFilename}`;
   

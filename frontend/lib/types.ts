@@ -1,3 +1,11 @@
+export interface TransferFile {
+  id: number;
+  filename: string;
+  size: number;
+  mimeType?: string;
+  thumbnailPath?: string;
+}
+
 export interface TransferInfo {
   id: string;
   status: 'pending' | 'uploading' | 'ready' | 'expired';
@@ -10,6 +18,7 @@ export interface TransferInfo {
   expires_at: string;
   download_count: number;
   progress: number;
+  files?: TransferFile[];
 }
 
 export interface InitTransferResponse {

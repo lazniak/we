@@ -30,113 +30,214 @@ export default function HomePage() {
 
   const handleFilesSelected = useCallback(async (files: File[], paths: string[], expirationDays: number) => {
     try {
-      const filename = `${generateZipFilename(files)}.zip`;
+      const fileCount = files.length;
+      const shouldZip = fileCount > 10; // ZIP only if >10 files
       
-      setState(prev => ({
-        ...prev,
-        phase: 'zipping',
-        filename: generateZipFilename(files),
-        progress: 0,
-      }));
+      if (shouldZip) {
+        // >10 files: ZIP and upload
+        const filename = `${generateZipFilename(files)}.zip`;
+        
+        setState(prev => ({
+          ...prev,
+          phase: 'zipping',
+          filename: generateZipFilename(files),
+          progress: 0,
+        }));
 
-      // Use zipFilesWithFolders if we have folder structure, otherwise use zipFiles
-      const hasFolders = paths.some(p => p.includes('/'));
-      const zipPromise = hasFolders 
-        ? zipFilesWithFolders(files.map((f, i) => ({ file: f, path: paths[i] })), (progress) => {
+        const hasFolders = paths.some(p => p.includes('/'));
+        const zipPromise = hasFolders 
+          ? zipFilesWithFolders(files.map((f, i) => ({ file: f, path: paths[i] })), (progress) => {
+              setState(prev => ({
+                ...prev,
+                progress: progress.percent,
+              }));
+            })
+          : zipFiles(files, (progress) => {
+              setState(prev => ({
+                ...prev,
+                progress: progress.percent,
+              }));
+            });
+
+        const estimatedSize = files.reduce((acc, f) => acc + f.size, 0);
+        const estimatedChunks = calculateChunksTotal(estimatedSize);
+        
+        const initResponse = await fetch('/api/transfer/init', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename,
+            totalSize: estimatedSize,
+            chunksTotal: estimatedChunks,
+            expirationDays,
+            isZip: true,
+          }),
+        });
+
+        if (!initResponse.ok) {
+          throw new Error('Failed to initialize transfer');
+        }
+
+        const { transferId, shareUrl, expiresAt: expires } = 
+          await initResponse.json() as InitTransferResponse;
+
+        setExpiresAt(expires);
+        setState(prev => ({
+          ...prev,
+          transferId,
+          shareUrl,
+        }));
+
+        saveTransferToHistory({
+          transferId,
+          shareUrl,
+          filename,
+          expiresAt: expires,
+          status: 'uploading',
+        });
+
+        const zipBlob = await zipPromise;
+        const totalSize = zipBlob.size;
+        const chunksTotal = calculateChunksTotal(totalSize);
+
+        setState(prev => ({
+          ...prev,
+          phase: 'uploading',
+          filename,
+          totalSize,
+          uploadedSize: 0,
+          progress: 0,
+          startTime: Date.now(),
+        }));
+
+        await uploadChunked({
+          file: zipBlob,
+          transferId,
+          onProgress: (progress) => {
             setState(prev => ({
               ...prev,
-              progress: progress.percent,
+              uploadedSize: progress.uploadedBytes,
+              progress: progress.progress,
+              eta: progress.eta,
             }));
-          })
-        : zipFiles(files, (progress) => {
+          },
+          onComplete: () => {
             setState(prev => ({
               ...prev,
-              progress: progress.percent,
+              phase: 'complete',
+              progress: 100,
             }));
+            
+            if (transferId) {
+              updateTransferStatus(transferId, 'ready');
+            }
+          },
+          onError: (error) => {
+            setState(prev => ({
+              ...prev,
+              phase: 'error',
+              error: error.message,
+            }));
+          },
+        });
+      } else {
+        // <=10 files: Upload directly without ZIP
+        const filename = fileCount === 1 ? files[0].name : `${generateZipFilename(files)}.zip`;
+        const totalSize = files.reduce((acc, f) => acc + f.size, 0);
+        
+        setState(prev => ({
+          ...prev,
+          phase: 'uploading',
+          filename: fileCount === 1 ? files[0].name : generateZipFilename(files),
+          totalSize,
+          uploadedSize: 0,
+          progress: 0,
+          startTime: Date.now(),
+        }));
+
+        const initResponse = await fetch('/api/transfer/init', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename,
+            totalSize,
+            chunksTotal: 1, // Single file uploads don't use chunks
+            expirationDays,
+            isZip: false,
+            files: files.map((f, i) => ({
+              name: f.name,
+              size: f.size,
+              type: f.type,
+              path: paths[i],
+            })),
+          }),
+        });
+
+        if (!initResponse.ok) {
+          throw new Error('Failed to initialize transfer');
+        }
+
+        const { transferId, shareUrl, expiresAt: expires } = 
+          await initResponse.json() as InitTransferResponse;
+
+        setExpiresAt(expires);
+        setState(prev => ({
+          ...prev,
+          transferId,
+          shareUrl,
+        }));
+
+        saveTransferToHistory({
+          transferId,
+          shareUrl,
+          filename,
+          expiresAt: expires,
+          status: 'uploading',
+        });
+
+        // Upload files directly
+        let uploaded = 0;
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('filename', `file_${i}_${Date.now()}`);
+          formData.append('originalFilename', paths[i] || file.name);
+
+          const uploadResponse = await fetch(`/api/transfer/${transferId}/file`, {
+            method: 'POST',
+            body: formData,
           });
 
-      const estimatedSize = files.reduce((acc, f) => acc + f.size, 0);
-      const estimatedChunks = calculateChunksTotal(estimatedSize);
-      
-      const initResponse = await fetch('/api/transfer/init', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename,
-          totalSize: estimatedSize,
-          chunksTotal: estimatedChunks,
-          expirationDays,
-        }),
-      });
-
-      if (!initResponse.ok) {
-        throw new Error('Failed to initialize transfer');
-      }
-
-      const { transferId, shareUrl, expiresAt: expires } = 
-        await initResponse.json() as InitTransferResponse;
-
-      setExpiresAt(expires);
-      setState(prev => ({
-        ...prev,
-        transferId,
-        shareUrl,
-      }));
-
-      // Save to history immediately
-      saveTransferToHistory({
-        transferId,
-        shareUrl,
-        filename,
-        expiresAt: expires,
-        status: 'uploading',
-      });
-
-      const zipBlob = await zipPromise;
-      const totalSize = zipBlob.size;
-      const chunksTotal = calculateChunksTotal(totalSize);
-
-      setState(prev => ({
-        ...prev,
-        phase: 'uploading',
-        filename,
-        totalSize,
-        uploadedSize: 0,
-        progress: 0,
-        startTime: Date.now(),
-      }));
-
-      await uploadChunked({
-        file: zipBlob,
-        transferId,
-        onProgress: (progress) => {
-          setState(prev => ({
-            ...prev,
-            uploadedSize: progress.uploadedBytes,
-            progress: progress.progress,
-            eta: progress.eta,
-          }));
-        },
-        onComplete: () => {
-          setState(prev => ({
-            ...prev,
-            phase: 'complete',
-            progress: 100,
-          }));
-          
-          // Update history status
-          if (transferId) {
-            updateTransferStatus(transferId, 'ready');
+          if (!uploadResponse.ok) {
+            throw new Error(`Failed to upload file: ${file.name}`);
           }
-        },
-        onError: (error) => {
+
+          uploaded++;
           setState(prev => ({
             ...prev,
-            phase: 'error',
-            error: error.message,
+            uploadedSize: files.slice(0, uploaded).reduce((acc, f) => acc + f.size, 0),
+            progress: Math.round((uploaded / files.length) * 100),
           }));
-        },
-      });
+        }
+
+        // Mark as complete
+        await fetch(`/api/transfer/${transferId}/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isZip: false }),
+        });
+
+        setState(prev => ({
+          ...prev,
+          phase: 'complete',
+          progress: 100,
+        }));
+
+        if (transferId) {
+          updateTransferStatus(transferId, 'ready');
+        }
+      }
 
     } catch (error) {
       setState(prev => ({
