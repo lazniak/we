@@ -240,9 +240,14 @@ transferRoutes.get('/:id/download', async (c) => {
   // Create read stream for large files
   const fileStream = createReadStream(filePath);
   
+  // Encode filename for proper handling of special characters (Polish, etc.)
+  // Use RFC 5987 encoding for UTF-8 filenames
+  const encodedFilename = encodeURIComponent(filename);
+  const contentDisposition = `attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`;
+  
   // Set headers
   c.header('Content-Type', 'application/zip');
-  c.header('Content-Disposition', `attachment; filename="${filename}"`);
+  c.header('Content-Disposition', contentDisposition);
   c.header('Content-Length', String(fileSize));
   c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
   c.header('Pragma', 'no-cache');
