@@ -8,6 +8,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        display: ['var(--font-roboto-condensed)', 'Roboto Condensed', 'sans-serif'],
+        body: ['var(--font-saira)', 'Saira', 'sans-serif'],
+      },
       colors: {
         bg: {
           primary: '#050505',
@@ -27,6 +31,7 @@ const config: Config = {
       animation: {
         'fade-in': 'fadeIn 0.4s ease-out forwards',
         'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
+        'shine': 'shine 1.5s ease-in-out',
       },
       keyframes: {
         fadeIn: {
@@ -36,6 +41,10 @@ const config: Config = {
         'pulse-glow': {
           '0%, 100%': { boxShadow: '0 0 20px rgba(59, 130, 246, 0.2)' },
           '50%': { boxShadow: '0 0 40px rgba(59, 130, 246, 0.4)' },
+        },
+        shine: {
+          '0%': { transform: 'translateX(-100%) skewX(-12deg)' },
+          '100%': { transform: 'translateX(200%) skewX(-12deg)' },
         },
       },
       backdropBlur: {

@@ -7,6 +7,7 @@ import clsx from 'clsx';
 import { formatBytes, formatEta } from '@/lib/format';
 import { TransferWebSocket } from '@/lib/websocket';
 import FilePreview from '@/components/FilePreview';
+import Logo from '@/components/Logo';
 import type { TransferInfo, ProgressUpdate } from '@/lib/types';
 
 type PageStatus = 'loading' | 'uploading' | 'ready' | 'expired' | 'not_found' | 'error';
@@ -119,8 +120,15 @@ export default function TransferPage() {
   };
   
   return (
-    <main className="min-h-screen flex flex-col">
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+    <main className="min-h-screen flex flex-col font-body">
+      {/* Header with Logo */}
+      <header className="pt-8 pb-4 px-6">
+        <a href="/" className="flex justify-center hover:opacity-80 transition-opacity">
+          <Logo size="md" />
+        </a>
+      </header>
+      
+      <div className="flex-1 flex flex-col items-center px-6 py-8">
         <div className="w-full max-w-md">
           
           {/* Loading */}

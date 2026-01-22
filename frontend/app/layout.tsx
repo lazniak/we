@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from 'next';
-import { Outfit } from 'next/font/google';
+import { Saira, Roboto_Condensed } from 'next/font/google';
 import './globals.css';
 
-const outfit = Outfit({ 
+const saira = Saira({ 
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-outfit',
+  variable: '--font-saira',
+});
+
+const robotoCondensed = Roboto_Condensed({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-roboto-condensed',
 });
 
 export const metadata: Metadata = {
@@ -31,8 +37,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={outfit.variable}>
-      <body className="min-h-screen bg-bg-primary font-sans antialiased">
+    <html lang="en" className={`${saira.variable} ${robotoCondensed.variable}`}>
+      <body className="min-h-screen bg-bg-primary antialiased">
         <div className="min-h-screen flex flex-col">
           {children}
         </div>

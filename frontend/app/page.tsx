@@ -6,6 +6,7 @@ import UploadProgress from '@/components/UploadProgress';
 import ShareLink from '@/components/ShareLink';
 import Stats from '@/components/Stats';
 import TransferHistory from '@/components/TransferHistory';
+import Logo from '@/components/Logo';
 import { zipFiles, zipFilesWithFolders, generateZipFilename } from '@/lib/zipper';
 import { uploadChunked, calculateChunksTotal } from '@/lib/chunker';
 import { saveTransferToHistory, updateTransferStatus } from '@/lib/transferHistory';
@@ -263,16 +264,20 @@ export default function HomePage() {
   const isComplete = state.phase === 'complete';
 
   return (
-    <main className="min-h-screen flex flex-col">
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-        {/* Hero */}
+    <main className="min-h-screen flex flex-col font-body">
+      {/* Header with Logo */}
+      <header className="pt-10 pb-6 px-6">
+        <div className="flex justify-center">
+          <Logo size="lg" showTagline />
+        </div>
+      </header>
+      
+      <div className="flex-1 flex flex-col items-center px-6 py-6">
+        {/* Subtitle */}
         {showDropZone && (
-          <div className="text-center mb-10 animate-fade-in">
-            <h1 className="text-2xl font-medium text-white/80 mb-3 tracking-tight">
-              we.pablogfx.com
-            </h1>
+          <div className="text-center mb-8 animate-fade-in">
             <p className="text-sm text-white/40 max-w-sm mx-auto">
-              Share files up to 5GB. No signup. Links expire in 3 days.
+              Share files up to 5GB. No signup. Links expire in 3-7 days.
             </p>
           </div>
         )}
