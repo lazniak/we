@@ -27,7 +27,13 @@ interface FileWithPath {
 export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<FileWithPath[]>([]);
-  const [expirationDays, setExpirationDays] = useState(3);
+  const [expirationDays, setExpirationDays] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('we-expiration-days');
+      return saved ? parseInt(saved, 10) : 3;
+    }
+    return 3;
+  });
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -35,6 +41,14 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
   const MAX_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
+
+  // Save expiration days preference
+  const handleExpirationChange = (days: number) => {
+    setExpirationDays(days);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('we-expiration-days', days.toString());
+    }
+  };
 
   // Process directory entry recursively
   const processDirectoryEntry = useCallback(async (
@@ -310,28 +324,28 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
 
   return (
     <div className="w-full max-w-xl mx-auto space-y-4">
-      {/* Expiration Days Slider */}
-      <div className="glass-strong rounded-2xl p-5 animate-fade-in">
-        <div className="flex items-center justify-between mb-3">
-          <label className="text-sm font-medium text-white/80">
-            Link expires in
-          </label>
-          <span className="text-sm font-semibold text-accent-light">
-            {expirationDays} {expirationDays === 1 ? 'day' : 'days'}
-          </span>
-        </div>
-        <input
-          type="range"
-          min="3"
-          max="7"
-          value={expirationDays}
-          onChange={(e) => setExpirationDays(Number(e.target.value))}
-          disabled={disabled}
-          className="w-full h-2 bg-white/5 rounded-lg appearance-none cursor-pointer accent-accent slider-glossy"
-        />
-        <div className="flex justify-between text-xs text-white/30 mt-2">
-          <span>3 days</span>
-          <span>7 days</span>
+      {/* Expiration Days Selector */}
+      <div className="glass rounded-2xl p-4 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-white/40 uppercase tracking-wider">expires</span>
+          <div className="flex items-center gap-1 p-1 bg-white/[0.03] rounded-xl">
+            {[3, 4, 5, 6, 7].map((day) => (
+              <button
+                key={day}
+                onClick={() => !disabled && handleExpirationChange(day)}
+                disabled={disabled}
+                className={clsx(
+                  'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                  expirationDays === day
+                    ? 'bg-white/10 text-white shadow-sm'
+                    : 'text-white/30 hover:text-white/50 hover:bg-white/[0.03]',
+                  disabled && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                {day}d
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
