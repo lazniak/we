@@ -21,6 +21,7 @@ export default function TransferPage() {
   const [progress, setProgress] = useState(0);
   const [eta, setEta] = useState<number | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [hoveredImage, setHoveredImage] = useState<string | null>(null);
   
   const fetchTransfer = useCallback(async () => {
     try {
@@ -120,8 +121,24 @@ export default function TransferPage() {
   };
   
   return (
-    <main className="min-h-screen flex flex-col font-body">
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+    <main className="min-h-screen flex flex-col font-body relative overflow-hidden">
+      {/* Full-page background image preview */}
+      {hoveredImage && (
+        <>
+          <div 
+            className="fixed inset-0 z-0 transition-opacity duration-500"
+            style={{
+              backgroundImage: `url(${hoveredImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              opacity: 0.08,
+            }}
+          />
+          <div className="fixed inset-0 z-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60" />
+        </>
+      )}
+      
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-12">
         {/* Logo */}
         <a href="/" className="mb-8 hover:opacity-80 transition-opacity">
           <Logo size="md" />
@@ -230,6 +247,7 @@ export default function TransferPage() {
                         file={file}
                         transferId={transferId}
                         onDownload={(fileId) => handleDownload(fileId)}
+                        onHover={setHoveredImage}
                       />
                     ))}
                   </div>
