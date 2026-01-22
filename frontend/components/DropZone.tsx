@@ -32,10 +32,10 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
   ): Promise<FileWithPath[]> => {
     return new Promise((resolve, reject) => {
       const reader = entry.createReader();
-      const entries: (FileSystemFileEntry | FileSystemDirectoryEntry)[] = [];
+      const entries: FileSystemEntry[] = [];
       
       const readEntries = () => {
-        reader.readEntries((batch) => {
+        reader.readEntries((batch: FileSystemEntry[]) => {
           if (batch.length === 0) {
             // All entries read, process them
             Promise.all(
@@ -54,6 +54,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
                   const newPath = basePath ? `${basePath}/${dirEntry.name}` : dirEntry.name;
                   return processDirectoryEntry(dirEntry, newPath, allFiles);
                 }
+                return Promise.resolve();
               })
             ).then(() => resolve(allFiles)).catch(reject);
           } else {
