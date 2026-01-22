@@ -224,24 +224,24 @@ const icons: Record<string, (color: string) => React.ReactNode> = {
   ),
 };
 
-// Colors for each type
+// Colors for each type - minimalist monochrome
 const typeColors: Record<string, string> = {
-  image: '#10b981',      // emerald
-  video: '#f59e0b',      // amber
-  audio: '#8b5cf6',      // violet
-  pdf: '#ef4444',        // red
-  word: '#3b82f6',       // blue
-  excel: '#22c55e',      // green
-  powerpoint: '#f97316', // orange
-  text: '#6b7280',       // gray
-  code: '#06b6d4',       // cyan
-  archive: '#eab308',    // yellow
-  font: '#ec4899',       // pink
-  design: '#a855f7',     // purple
-  '3d': '#14b8a6',       // teal
-  executable: '#64748b', // slate
-  database: '#0ea5e9',   // sky
-  file: '#9ca3af',       // gray
+  image: 'rgba(255,255,255,0.5)',
+  video: 'rgba(255,255,255,0.5)',
+  audio: 'rgba(255,255,255,0.5)',
+  pdf: 'rgba(255,255,255,0.4)',
+  word: 'rgba(255,255,255,0.4)',
+  excel: 'rgba(255,255,255,0.4)',
+  powerpoint: 'rgba(255,255,255,0.4)',
+  text: 'rgba(255,255,255,0.35)',
+  code: 'rgba(255,255,255,0.4)',
+  archive: 'rgba(255,255,255,0.4)',
+  font: 'rgba(255,255,255,0.35)',
+  design: 'rgba(255,255,255,0.4)',
+  '3d': 'rgba(255,255,255,0.4)',
+  executable: 'rgba(255,255,255,0.35)',
+  database: 'rgba(255,255,255,0.4)',
+  file: 'rgba(255,255,255,0.3)',
 };
 
 export function FileIcon({ filename, mimeType, size = 'md', className = '' }: FileIconProps) {
@@ -267,8 +267,7 @@ export function FileIcon({ filename, mimeType, size = 'md', className = '' }: Fi
       {/* Show extension badge for unknown/generic types */}
       {(type === 'file' && ext) && (
         <div 
-          className={`absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 py-0.5 rounded text-white font-bold ${extSizes[size]}`}
-          style={{ backgroundColor: color }}
+          className={`absolute -bottom-0.5 left-1/2 -translate-x-1/2 px-1 py-0.5 rounded bg-white/10 text-white/50 font-medium ${extSizes[size]}`}
         >
           {ext.slice(0, 4)}
         </div>
