@@ -6,6 +6,7 @@ import { Download, Loader2, Clock, FileArchive, AlertCircle } from 'lucide-react
 import clsx from 'clsx';
 import { formatBytes, formatEta } from '@/lib/format';
 import { TransferWebSocket } from '@/lib/websocket';
+import FilePreview from '@/components/FilePreview';
 import type { TransferInfo, ProgressUpdate } from '@/lib/types';
 
 type PageStatus = 'loading' | 'uploading' | 'ready' | 'expired' | 'not_found' | 'error';
@@ -87,11 +88,17 @@ export default function TransferPage() {
     };
   }, [status, transferId, fetchTransfer, transfer]);
   
-  const handleDownload = async () => {
+  const handleDownload = async (fileId?: number) => {
     if (!transfer || status !== 'ready') return;
     setIsDownloading(true);
     try {
-      window.location.href = `/api/transfer/${transferId}/download`;
+      if (fileId !== undefined) {
+        // Download specific file
+        window.location.href = `/api/transfer/${transferId}/download?fileId=${fileId}`;
+      } else {
+        // Download all (ZIP)
+        window.location.href = `/api/transfer/${transferId}/download`;
+      }
     } catch (err) {
       console.error('Download failed:', err);
     } finally {
@@ -198,29 +205,74 @@ export default function TransferPage() {
           {/* Ready */}
           {status === 'ready' && transfer && (
             <div className="glass rounded-2xl p-6 animate-fade-in">
-              <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-xl mb-5">
-                <FileArchive className="w-8 h-8 text-accent/50" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white/70 truncate">{transfer.filename}</p>
-                  <p className="text-xs text-white/30">{formatBytes(transfer.total_size)}</p>
-                </div>
-              </div>
-              
-              <button
-                onClick={handleDownload}
-                disabled={isDownloading}
-                className={clsx(
-                  'w-full py-3.5 rounded-xl font-medium text-sm transition-all duration-200',
-                  'btn-primary flex items-center justify-center gap-2'
-                )}
-              >
-                {isDownloading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Download className="w-4 h-4" />
-                )}
-                {isDownloading ? 'Starting...' : 'Download'}
-              </button>
+              {/* Show file list if multiple individual files */}
+              {transfer.files && transfer.files.length > 0 ? (
+                <>
+                  {/* Header with file count */}
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-sm font-medium text-white/70">
+                      {transfer.files.length} {transfer.files.length === 1 ? 'file' : 'files'}
+                    </h2>
+                    <span className="text-xs text-white/40">{formatBytes(transfer.total_size)}</span>
+                  </div>
+                  
+                  {/* File list with previews */}
+                  <div className="space-y-2 mb-5 max-h-80 overflow-y-auto custom-scrollbar">
+                    {transfer.files.map((file) => (
+                      <FilePreview
+                        key={file.id}
+                        file={file}
+                        transferId={transferId}
+                        onDownload={(fileId) => handleDownload(fileId)}
+                      />
+                    ))}
+                  </div>
+                  
+                  {/* Download All button */}
+                  <button
+                    onClick={() => handleDownload()}
+                    disabled={isDownloading}
+                    className={clsx(
+                      'w-full py-3.5 rounded-xl font-medium text-sm transition-all duration-200',
+                      'btn-primary flex items-center justify-center gap-2'
+                    )}
+                  >
+                    {isDownloading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    {isDownloading ? 'Starting...' : `Download All (${formatBytes(transfer.total_size)})`}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Single ZIP file display */}
+                  <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-xl mb-5">
+                    <FileArchive className="w-8 h-8 text-accent/50" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white/70 truncate">{transfer.filename}</p>
+                      <p className="text-xs text-white/30">{formatBytes(transfer.total_size)}</p>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={() => handleDownload()}
+                    disabled={isDownloading}
+                    className={clsx(
+                      'w-full py-3.5 rounded-xl font-medium text-sm transition-all duration-200',
+                      'btn-primary flex items-center justify-center gap-2'
+                    )}
+                  >
+                    {isDownloading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    {isDownloading ? 'Starting...' : 'Download'}
+                  </button>
+                </>
+              )}
               
               <div className="mt-4 flex items-center justify-center gap-4 text-[11px] text-white/30">
                 <div className="flex items-center gap-1">

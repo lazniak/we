@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import DropZone from '@/components/DropZone';
+import DropZone, { type FilesMetadata } from '@/components/DropZone';
 import UploadProgress from '@/components/UploadProgress';
 import ShareLink from '@/components/ShareLink';
 import Stats from '@/components/Stats';
@@ -28,13 +28,18 @@ export default function HomePage() {
   const [state, setState] = useState<UploadState>(initialState);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
 
-  const handleFilesSelected = useCallback(async (files: File[], paths: string[], expirationDays: number) => {
+  const handleFilesSelected = useCallback(async (metadata: FilesMetadata) => {
+    const { files, paths, expirationDays, hasFolder, fileCount } = metadata;
+    
     try {
-      const fileCount = files.length;
-      const shouldZip = fileCount > 10; // ZIP only if >10 files
+      // Packaging strategy:
+      // 1. Folder dropped → always ZIP
+      // 2. <10 individual files → upload without ZIP (individual downloads)
+      // 3. >=10 individual files → ZIP
+      const shouldZip = hasFolder || fileCount >= 10;
       
       if (shouldZip) {
-        // >10 files: ZIP and upload
+        // ZIP and upload
         const filename = `${generateZipFilename(files)}.zip`;
         
         setState(prev => ({
@@ -98,7 +103,6 @@ export default function HomePage() {
 
         const zipBlob = await zipPromise;
         const totalSize = zipBlob.size;
-        const chunksTotal = calculateChunksTotal(totalSize);
 
         setState(prev => ({
           ...prev,
@@ -141,14 +145,14 @@ export default function HomePage() {
           },
         });
       } else {
-        // <=10 files: Upload directly without ZIP
-        const filename = fileCount === 1 ? files[0].name : `${generateZipFilename(files)}.zip`;
+        // <10 individual files: Upload directly without ZIP
+        const displayName = fileCount === 1 ? files[0].name : `${fileCount} files`;
         const totalSize = files.reduce((acc, f) => acc + f.size, 0);
         
         setState(prev => ({
           ...prev,
           phase: 'uploading',
-          filename: fileCount === 1 ? files[0].name : generateZipFilename(files),
+          filename: displayName,
           totalSize,
           uploadedSize: 0,
           progress: 0,
@@ -159,9 +163,9 @@ export default function HomePage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            filename,
+            filename: displayName,
             totalSize,
-            chunksTotal: 1, // Single file uploads don't use chunks
+            chunksTotal: fileCount,
             expirationDays,
             isZip: false,
             files: files.map((f, i) => ({
@@ -190,7 +194,7 @@ export default function HomePage() {
         saveTransferToHistory({
           transferId,
           shareUrl,
-          filename,
+          filename: displayName,
           expiresAt: expires,
           status: 'uploading',
         });

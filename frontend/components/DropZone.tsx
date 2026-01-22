@@ -5,14 +5,23 @@ import { Upload, File, X, Plus, Folder, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { formatBytes } from '@/lib/format';
 
+export interface FilesMetadata {
+  files: File[];
+  paths: string[];
+  expirationDays: number;
+  hasFolder: boolean;  // true if any folder was dropped
+  fileCount: number;   // number of individual files
+}
+
 interface DropZoneProps {
-  onFilesSelected: (files: File[], paths: string[], expirationDays: number) => void;
+  onFilesSelected: (metadata: FilesMetadata) => void;
   disabled?: boolean;
 }
 
 interface FileWithPath {
   file: File;
   path: string;
+  fromFolder: boolean;
 }
 
 export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
@@ -48,7 +57,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
                   return new Promise<void>((fileResolve, fileReject) => {
                     fileEntry.file((file) => {
                       const path = basePath ? `${basePath}/${file.name}` : file.name;
-                      allFiles.push({ file, path });
+                      allFiles.push({ file, path, fromFolder: true });
                       fileResolve();
                     }, fileReject);
                   });
@@ -147,20 +156,22 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
               const fileEntry = entry as FileSystemFileEntry;
               return new Promise<void>((resolve, reject) => {
                 fileEntry.file((file) => {
-                  allFiles.push({ file, path: file.name });
+                  allFiles.push({ file, path: file.name, fromFolder: false });
                   resolve();
                 }, reject);
               });
             } else if (entry.isDirectory) {
               const dirEntry = entry as FileSystemDirectoryEntry;
               const folderFiles = await processDirectoryEntry(dirEntry, dirEntry.name);
+              // Mark all files from folder
+              folderFiles.forEach(f => f.fromFolder = true);
               allFiles.push(...folderFiles);
             }
           } else {
             // Fallback: webkitGetAsEntry not supported
             const file = item.getAsFile();
             if (file) {
-              allFiles.push({ file, path: file.name });
+              allFiles.push({ file, path: file.name, fromFolder: false });
             }
           }
         });
@@ -170,7 +181,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
         // Fallback: Use FileList (doesn't support folders)
         const files = Array.from(e.dataTransfer.files);
         files.forEach(file => {
-          allFiles.push({ file, path: file.name });
+          allFiles.push({ file, path: file.name, fromFolder: false });
         });
       }
       
@@ -193,7 +204,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
     if (files.length > 0) {
-      const filesWithPath: FileWithPath[] = files.map(file => ({ file, path: file.name }));
+      const filesWithPath: FileWithPath[] = files.map(file => ({ file, path: file.name, fromFolder: false }));
       addFilesWithValidation(filesWithPath);
     }
     // Reset input to allow selecting the same file again
@@ -210,7 +221,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
       const filesWithPath: FileWithPath[] = files.map(file => {
         // webkitRelativePath contains the full path including folder name
         const path = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
-        return { file, path };
+        return { file, path, fromFolder: true };
       });
       
       addFilesWithValidation(filesWithPath);
@@ -248,7 +259,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
                 const ext = file.type.split('/')[1] || 'png';
                 fileName = `pasted-${Date.now()}.${ext}`;
               }
-              allFiles.push({ file, path: fileName });
+              allFiles.push({ file, path: fileName, fromFolder: false });
             }
           }
         }
@@ -282,7 +293,15 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
     if (selectedFiles.length > 0) {
       const files = selectedFiles.map(f => f.file);
       const paths = selectedFiles.map(f => f.path);
-      onFilesSelected(files, paths, expirationDays);
+      const hasFolder = selectedFiles.some(f => f.fromFolder);
+      
+      onFilesSelected({
+        files,
+        paths,
+        expirationDays,
+        hasFolder,
+        fileCount: selectedFiles.length,
+      });
     }
   };
 
