@@ -188,48 +188,51 @@ async function generateThumbnail(imageBuffer: Buffer, transferId: string, filena
 transferRoutes.post('/:id/complete', async (c) => {
   try {
     const { id } = c.req.param();
-    const body = await c.req.json().catch(() => ({}));
-    const { isZip } = body;
     const transfer = getTransfer(id);
     
     if (!transfer) {
       return c.json({ error: 'Transfer not found' }, 404);
     }
     
-    if (isZip) {
-      // Handle ZIP file - merge chunks
-      const chunksDir = join(UPLOADS_DIR, `${id}_chunks`);
-      const outputPath = join(UPLOADS_DIR, `${id}.zip`);
-      
-      // Read and sort chunk files
+    // Check if chunks directory exists and has chunks
+    const chunksDir = join(UPLOADS_DIR, `${id}_chunks`);
+    const outputPath = join(UPLOADS_DIR, `${id}.zip`);
+    
+    if (existsSync(chunksDir)) {
       const chunkFiles = readdirSync(chunksDir)
         .filter(f => f.startsWith('chunk_'))
         .sort();
       
-      // Merge chunks into final file
-      const writeStream = createWriteStream(outputPath);
-      
-      for (const chunkFile of chunkFiles) {
-        const chunkPath = join(chunksDir, chunkFile);
-        const chunkData = readFileSync(chunkPath);
-        writeStream.write(chunkData);
-        unlinkSync(chunkPath); // Delete chunk after merging
-      }
-      
-      writeStream.end();
-      
-      // Wait for write to complete
-      await new Promise<void>((resolve, reject) => {
-        writeStream.on('finish', resolve);
-        writeStream.on('error', reject);
-      });
-      
-      // Remove chunks directory
-      try {
-        const { rmSync } = await import('fs');
-        rmSync(chunksDir, { recursive: true, force: true });
-      } catch (e) {
-        // Ignore cleanup errors
+      if (chunkFiles.length > 0) {
+        // Merge chunks into final ZIP file
+        console.log(`📦 Merging ${chunkFiles.length} chunks for transfer: ${id}`);
+        
+        const writeStream = createWriteStream(outputPath);
+        
+        for (const chunkFile of chunkFiles) {
+          const chunkPath = join(chunksDir, chunkFile);
+          const chunkData = readFileSync(chunkPath);
+          writeStream.write(chunkData);
+          unlinkSync(chunkPath); // Delete chunk after merging
+        }
+        
+        writeStream.end();
+        
+        // Wait for write to complete
+        await new Promise<void>((resolve, reject) => {
+          writeStream.on('finish', resolve);
+          writeStream.on('error', reject);
+        });
+        
+        console.log(`✅ Chunks merged to: ${outputPath}`);
+        
+        // Remove chunks directory
+        try {
+          const { rmSync } = await import('fs');
+          rmSync(chunksDir, { recursive: true, force: true });
+        } catch (e) {
+          // Ignore cleanup errors
+        }
       }
     }
     // For multi-file, files are already saved via /file endpoint
