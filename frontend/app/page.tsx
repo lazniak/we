@@ -33,11 +33,17 @@ export default function HomePage() {
     const { files, paths, expirationDays, hasFolder, fileCount } = metadata;
     
     try {
+      // Calculate total size and check for large files
+      const totalSize = files.reduce((acc, f) => acc + f.size, 0);
+      const hasLargeFile = files.some(f => f.size > 50 * 1024 * 1024); // >50MB
+      const isLargeTotal = totalSize > 50 * 1024 * 1024; // >50MB total
+      
       // Packaging strategy:
       // 1. Folder dropped → always ZIP
-      // 2. <10 individual files → upload without ZIP (individual downloads)
-      // 3. >=10 individual files → ZIP
-      const shouldZip = hasFolder || fileCount >= 10;
+      // 2. Large file (>50MB) or large total → ZIP (for chunked upload)
+      // 3. <10 small files → upload without ZIP (individual downloads)
+      // 4. >=10 files → ZIP
+      const shouldZip = hasFolder || fileCount >= 10 || hasLargeFile || isLargeTotal;
       
       if (shouldZip) {
         // ZIP and upload
