@@ -121,14 +121,12 @@ export default function TransferPage() {
   
   return (
     <main className="min-h-screen flex flex-col font-body">
-      {/* Header with Logo */}
-      <header className="pt-8 pb-4 px-6">
-        <a href="/" className="flex justify-center hover:opacity-80 transition-opacity">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+        {/* Logo */}
+        <a href="/" className="mb-8 hover:opacity-80 transition-opacity">
           <Logo size="md" />
         </a>
-      </header>
-      
-      <div className="flex-1 flex flex-col items-center px-6 py-8">
+        
         <div className="w-full max-w-md">
           
           {/* Loading */}
@@ -311,23 +309,7 @@ export default function TransferPage() {
             </div>
           )}
         </div>
-        
-        {/* Link to home */}
-        <div className="mt-8 text-center">
-          <a
-            href="/"
-            className="text-xs text-white/40 hover:text-accent-light transition-colors"
-          >
-            ← Send your own files
-          </a>
-        </div>
       </div>
-      
-      <footer className="py-6 px-8">
-        <p className="text-center text-[11px] text-white/20">
-          Encrypted transfer · Auto-delete after 3 days
-        </p>
-      </footer>
     </main>
   );
 }

@@ -265,14 +265,12 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen flex flex-col font-body">
-      {/* Header with Logo */}
-      <header className="pt-10 pb-6 px-6">
-        <div className="flex justify-center">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+        {/* Logo */}
+        <div className="mb-8">
           <Logo size="lg" showTagline />
         </div>
-      </header>
-      
-      <div className="flex-1 flex flex-col items-center px-6 py-6">
+        
         {/* Subtitle */}
         {showDropZone && (
           <div className="text-center mb-8 animate-fade-in">
@@ -321,12 +319,6 @@ export default function HomePage() {
           </>
         )}
       </div>
-      
-      <footer className="py-6 px-8">
-        <p className="text-center text-[11px] text-white/20">
-          Encrypted transfer · Auto-delete after 3 days
-        </p>
-      </footer>
     </main>
   );
 }
