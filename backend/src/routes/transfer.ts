@@ -242,8 +242,9 @@ transferRoutes.get('/:id/download', async (c) => {
   
   // Encode filename for proper handling of special characters (Polish, etc.)
   // Use RFC 5987 encoding for UTF-8 filenames
+  // Only use filename* to avoid issues with special characters in quoted strings
   const encodedFilename = encodeURIComponent(filename);
-  const contentDisposition = `attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`;
+  const contentDisposition = `attachment; filename*=UTF-8''${encodedFilename}`;
   
   // Set headers
   c.header('Content-Type', 'application/zip');
