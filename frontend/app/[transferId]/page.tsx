@@ -21,7 +21,7 @@ export default function TransferPage() {
   const [progress, setProgress] = useState(0);
   const [eta, setEta] = useState<number | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [hoveredImage, setHoveredImage] = useState<string | null>(null);
+  const [hoveredMedia, setHoveredMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
   
   const fetchTransfer = useCallback(async () => {
     try {
@@ -122,18 +122,29 @@ export default function TransferPage() {
   
   return (
     <main className="min-h-screen flex flex-col font-body relative overflow-hidden">
-      {/* Full-page background image preview */}
-      {hoveredImage && (
+      {/* Full-page background media preview */}
+      {hoveredMedia && (
         <>
-          <div 
-            className="fixed inset-0 z-0 transition-opacity duration-500"
-            style={{
-              backgroundImage: `url(${hoveredImage})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              opacity: 0.08,
-            }}
-          />
+          {hoveredMedia.type === 'image' ? (
+            <div 
+              className="fixed inset-0 z-0 transition-opacity duration-500"
+              style={{
+                backgroundImage: `url(${hoveredMedia.url})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                opacity: 0.1,
+              }}
+            />
+          ) : (
+            <video
+              src={hoveredMedia.url}
+              className="fixed inset-0 z-0 w-full h-full object-cover opacity-[0.12]"
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
+          )}
           <div className="fixed inset-0 z-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60" />
         </>
       )}
@@ -247,7 +258,7 @@ export default function TransferPage() {
                         file={file}
                         transferId={transferId}
                         onDownload={(fileId) => handleDownload(fileId)}
-                        onHover={setHoveredImage}
+                        onHover={(url, type) => setHoveredMedia(url && type ? { url, type } : null)}
                       />
                     ))}
                   </div>

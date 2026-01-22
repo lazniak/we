@@ -284,4 +284,11 @@ export function isImageFile(filename: string, mimeType?: string): boolean {
   return imageExts.includes(ext) || (mimeType?.startsWith('image/') || false);
 }
 
+// Export helper to check if file is a video
+export function isVideoFile(filename: string, mimeType?: string): boolean {
+  const ext = getExtension(filename);
+  const videoExts = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v', '3gp'];
+  return videoExts.includes(ext) || (mimeType?.startsWith('video/') || false);
+}
+
 export default FileIcon;

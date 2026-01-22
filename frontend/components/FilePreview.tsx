@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Download } from 'lucide-react';
-import { FileIcon, isImageFile } from './FileIcon';
+import { FileIcon, isImageFile, isVideoFile } from './FileIcon';
 import { formatBytes } from '@/lib/format';
 
 interface FilePreviewProps {
@@ -14,22 +14,27 @@ interface FilePreviewProps {
   };
   transferId: string;
   onDownload: (fileId: number) => void;
-  onHover?: (imageUrl: string | null) => void;
+  onHover?: (url: string | null, type: 'image' | 'video' | null) => void;
 }
 
 export function FilePreview({ file, transferId, onDownload, onHover }: FilePreviewProps) {
   const isImage = isImageFile(file.filename, file.mimeType);
-  const imageUrl = isImage ? `/api/transfer/${transferId}/download?fileId=${file.id}` : null;
+  const isVideo = isVideoFile(file.filename, file.mimeType);
+  const mediaUrl = (isImage || isVideo) ? `/api/transfer/${transferId}/download?fileId=${file.id}` : null;
 
   const handleMouseEnter = () => {
-    if (isImage && imageUrl && onHover) {
-      onHover(imageUrl);
+    if (mediaUrl && onHover) {
+      if (isImage) {
+        onHover(mediaUrl, 'image');
+      } else if (isVideo) {
+        onHover(mediaUrl, 'video');
+      }
     }
   };
 
   const handleMouseLeave = () => {
     if (onHover) {
-      onHover(null);
+      onHover(null, null);
     }
   };
 
@@ -42,12 +47,19 @@ export function FilePreview({ file, transferId, onDownload, onHover }: FilePrevi
     >
       {/* Thumbnail */}
       <div className="flex-shrink-0 w-11 h-11 rounded-lg overflow-hidden bg-white/[0.03] group-hover:ring-1 group-hover:ring-white/10 transition-all">
-        {isImage && imageUrl ? (
+        {isImage && mediaUrl ? (
           <img 
-            src={imageUrl} 
+            src={mediaUrl} 
             alt={file.filename}
             className="w-full h-full object-cover"
             loading="lazy"
+          />
+        ) : isVideo && mediaUrl ? (
+          <video 
+            src={mediaUrl}
+            className="w-full h-full object-cover"
+            muted
+            preload="metadata"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
