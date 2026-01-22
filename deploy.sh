@@ -95,7 +95,7 @@ server {
 
     # Frontend
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:3002;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -180,7 +180,7 @@ module.exports = {
       args: 'run start',
       env: {
         NODE_ENV: 'production',
-        PORT: 3000,
+        PORT: 3002,
         PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
       },
       error_file: '/var/www/we/logs/frontend-error.log',
