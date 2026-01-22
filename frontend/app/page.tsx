@@ -6,7 +6,7 @@ import UploadProgress from '@/components/UploadProgress';
 import ShareLink from '@/components/ShareLink';
 import Stats from '@/components/Stats';
 import TransferHistory from '@/components/TransferHistory';
-import { zipFiles, generateZipFilename } from '@/lib/zipper';
+import { zipFiles, zipFilesWithFolders, generateZipFilename } from '@/lib/zipper';
 import { uploadChunked, calculateChunksTotal } from '@/lib/chunker';
 import { saveTransferToHistory, updateTransferStatus } from '@/lib/transferHistory';
 import type { UploadState, InitTransferResponse } from '@/lib/types';
@@ -28,7 +28,7 @@ export default function HomePage() {
   const [state, setState] = useState<UploadState>(initialState);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
 
-  const handleFilesSelected = useCallback(async (files: File[], expirationDays: number) => {
+  const handleFilesSelected = useCallback(async (files: File[], paths: string[], expirationDays: number) => {
     try {
       const filename = `${generateZipFilename(files)}.zip`;
       
@@ -39,12 +39,21 @@ export default function HomePage() {
         progress: 0,
       }));
 
-      const zipPromise = zipFiles(files, (progress) => {
-        setState(prev => ({
-          ...prev,
-          progress: progress.percent,
-        }));
-      });
+      // Use zipFilesWithFolders if we have folder structure, otherwise use zipFiles
+      const hasFolders = paths.some(p => p.includes('/'));
+      const zipPromise = hasFolders 
+        ? zipFilesWithFolders(files.map((f, i) => ({ file: f, path: paths[i] })), (progress) => {
+            setState(prev => ({
+              ...prev,
+              progress: progress.percent,
+            }));
+          })
+        : zipFiles(files, (progress) => {
+            setState(prev => ({
+              ...prev,
+              progress: progress.percent,
+            }));
+          });
 
       const estimatedSize = files.reduce((acc, f) => acc + f.size, 0);
       const estimatedChunks = calculateChunksTotal(estimatedSize);

@@ -6,7 +6,7 @@ import clsx from 'clsx';
 import { formatBytes } from '@/lib/format';
 
 interface DropZoneProps {
-  onFilesSelected: (files: File[], expirationDays: number) => void;
+  onFilesSelected: (files: File[], paths: string[], expirationDays: number) => void;
   disabled?: boolean;
 }
 
@@ -190,7 +190,8 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
   const handleUpload = () => {
     if (selectedFiles.length > 0) {
       const files = selectedFiles.map(f => f.file);
-      onFilesSelected(files, expirationDays);
+      const paths = selectedFiles.map(f => f.path);
+      onFilesSelected(files, paths, expirationDays);
     }
   };
 
