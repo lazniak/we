@@ -10,7 +10,8 @@ import {
   incrementDownloadCount,
   addTransferFile,
   getTransferFiles,
-  deleteTransferFiles
+  deleteTransferFiles,
+  deleteTransfer
 } from '../db';
 import { broadcastProgress } from '../websocket';
 
@@ -297,6 +298,49 @@ transferRoutes.get('/:id', async (c) => {
       thumbnailPath: f.thumbnail_path,
     })),
   });
+});
+
+// Delete transfer completely
+transferRoutes.delete('/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const transfer = getTransfer(id);
+    
+    if (!transfer) {
+      return c.json({ error: 'Transfer not found' }, 404);
+    }
+    
+    const { rmSync } = await import('fs');
+    
+    // Delete ZIP file if exists
+    const zipPath = join(UPLOADS_DIR, `${id}.zip`);
+    if (existsSync(zipPath)) {
+      try { unlinkSync(zipPath); } catch (e) { /* ignore */ }
+    }
+    
+    // Delete individual files directory if exists
+    const filesDir = join(UPLOADS_DIR, id);
+    if (existsSync(filesDir)) {
+      try { rmSync(filesDir, { recursive: true, force: true }); } catch (e) { /* ignore */ }
+    }
+    
+    // Delete chunks directory if exists
+    const chunksDir = join(UPLOADS_DIR, `${id}_chunks`);
+    if (existsSync(chunksDir)) {
+      try { rmSync(chunksDir, { recursive: true, force: true }); } catch (e) { /* ignore */ }
+    }
+    
+    // Delete from database
+    deleteTransferFiles(id);
+    deleteTransfer(id);
+    
+    console.log(`🗑️ Transfer deleted: ${id}`);
+    
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Delete error:', error);
+    return c.json({ error: 'Failed to delete transfer' }, 500);
+  }
 });
 
 // Download file (ZIP or single file)

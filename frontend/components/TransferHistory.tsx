@@ -32,7 +32,18 @@ export default function TransferHistory() {
     }
   };
 
-  const handleDelete = (transferId: string) => {
+  const handleDelete = async (transferId: string) => {
+    // Delete from server first
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+      await fetch(`${apiUrl}/api/transfer/${transferId}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.error('Failed to delete from server:', err);
+    }
+    
+    // Remove from local history
     removeTransferFromHistory(transferId);
     const updated = getTransferHistory();
     setHistory(updated);
@@ -123,7 +134,7 @@ export default function TransferHistory() {
                 <button
                   onClick={() => handleDelete(item.transferId)}
                   className="p-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 text-white/40 hover:text-red-400 transition-all"
-                  title="Delete from history"
+                  title="del transfer"
                 >
                   <Trash2 className="w-3 h-3" />
                 </button>
