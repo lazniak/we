@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Upload, File, X, Plus, Folder, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { formatBytes } from '@/lib/format';
@@ -23,6 +23,9 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const directoryInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+
+  const MAX_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
 
   // Process directory entry recursively
   const processDirectoryEntry = useCallback(async (
@@ -73,6 +76,24 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
     return files.reduce((acc, { file }) => acc + file.size, 0);
   }, []);
 
+  // Validate and add files
+  const addFilesWithValidation = useCallback((newFiles: FileWithPath[]) => {
+    if (newFiles.length === 0) return;
+
+    setSelectedFiles(prev => {
+      const combined = [...prev, ...newFiles];
+      const totalSize = combined.reduce((acc, { file }) => acc + file.size, 0);
+      
+      if (totalSize > MAX_SIZE) {
+        setError(`Total size (${formatBytes(totalSize)}) exceeds 5GB limit`);
+        return prev; // Don't add new files
+      }
+      
+      setError(null);
+      return combined;
+    });
+  }, [MAX_SIZE]);
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -84,7 +105,19 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(false);
+    // Only set dragging to false if we're leaving the drop zone entirely
+    const rect = dropZoneRef.current?.getBoundingClientRect();
+    if (rect) {
+      const { clientX, clientY } = e;
+      if (
+        clientX < rect.left ||
+        clientX > rect.right ||
+        clientY < rect.top ||
+        clientY > rect.bottom
+      ) {
+        setIsDragging(false);
+      }
+    }
   }, []);
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
@@ -96,21 +129,23 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
     if (disabled || isProcessing) return;
     
     setIsProcessing(true);
-    const maxSize = 5 * 1024 * 1024 * 1024; // 5GB
     const allFiles: FileWithPath[] = [];
     
     try {
-      // Process DataTransfer items
-      const items = Array.from(e.dataTransfer.items);
-      
-      for (const item of items) {
-        if (item.kind === 'file') {
-          const entry = item.webkitGetAsEntry();
+      // First, try to use DataTransferItemList (supports folders)
+      if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+        const items = Array.from(e.dataTransfer.items);
+        
+        // Process all items
+        const processPromises = items.map(async (item) => {
+          if (item.kind !== 'file') return;
+          
+          const entry = item.webkitGetAsEntry?.();
           
           if (entry) {
             if (entry.isFile) {
               const fileEntry = entry as FileSystemFileEntry;
-              await new Promise<void>((resolve, reject) => {
+              return new Promise<void>((resolve, reject) => {
                 fileEntry.file((file) => {
                   allFiles.push({ file, path: file.name });
                   resolve();
@@ -122,69 +157,124 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
               allFiles.push(...folderFiles);
             }
           } else {
-            // Fallback for browsers that don't support webkitGetAsEntry
+            // Fallback: webkitGetAsEntry not supported
             const file = item.getAsFile();
             if (file) {
               allFiles.push({ file, path: file.name });
             }
           }
-        }
+        });
+        
+        await Promise.all(processPromises);
+      } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        // Fallback: Use FileList (doesn't support folders)
+        const files = Array.from(e.dataTransfer.files);
+        files.forEach(file => {
+          allFiles.push({ file, path: file.name });
+        });
       }
       
-      // Check total size
-      const totalSize = calculateTotalSize(allFiles);
-      if (totalSize > maxSize) {
-        setError(`Total size (${formatBytes(totalSize)}) exceeds 5GB limit`);
+      if (allFiles.length === 0) {
+        setError('No files detected. Please try again.');
         setIsProcessing(false);
         return;
       }
       
-      setSelectedFiles(prev => [...prev, ...allFiles]);
+      addFilesWithValidation(allFiles);
     } catch (err) {
       console.error('Error processing drop:', err);
       setError('Failed to process files. Please try again.');
     } finally {
       setIsProcessing(false);
     }
-  }, [disabled, isProcessing, processDirectoryEntry, calculateTotalSize]);
+  }, [disabled, isProcessing, processDirectoryEntry, addFilesWithValidation]);
 
-  const handleFileInput = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle file input (browse files)
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
     if (files.length > 0) {
       const filesWithPath: FileWithPath[] = files.map(file => ({ file, path: file.name }));
-      setSelectedFiles(prev => [...prev, ...filesWithPath]);
+      addFilesWithValidation(filesWithPath);
     }
+    // Reset input to allow selecting the same file again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  }, []);
+  }, [addFilesWithValidation]);
 
-  const handleDirectoryInput = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle directory input (browse folders)
+  const handleDirectoryInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
     if (files.length > 0) {
-      // For directory input, we need to preserve the relative path
-      // This is a simplified version - full implementation would need webkitdirectory
+      // For directory input, preserve the relative path
       const filesWithPath: FileWithPath[] = files.map(file => {
-        const path = (file as any).webkitRelativePath || file.name;
+        // webkitRelativePath contains the full path including folder name
+        const path = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
         return { file, path };
       });
       
-      const totalSize = calculateTotalSize(filesWithPath);
-      const maxSize = 5 * 1024 * 1024 * 1024;
-      if (totalSize > maxSize) {
-        setError(`Total size (${formatBytes(totalSize)}) exceeds 5GB limit`);
-        return;
-      }
-      
-      setSelectedFiles(prev => [...prev, ...filesWithPath]);
+      addFilesWithValidation(filesWithPath);
     }
+    // Reset input
     if (directoryInputRef.current) {
       directoryInputRef.current.value = '';
     }
-  }, [calculateTotalSize]);
+  }, [addFilesWithValidation]);
+
+  // Handle CTRL+V paste
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      if (disabled || isProcessing) return;
+      
+      const items = e.clipboardData?.items;
+      if (!items || items.length === 0) return;
+      
+      e.preventDefault();
+      setIsProcessing(true);
+      setError(null);
+      
+      const allFiles: FileWithPath[] = [];
+      
+      try {
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          
+          if (item.kind === 'file') {
+            const file = item.getAsFile();
+            if (file) {
+              // Generate a name for pasted images/files
+              let fileName = file.name;
+              if (!fileName || fileName === 'image.png') {
+                const ext = file.type.split('/')[1] || 'png';
+                fileName = `pasted-${Date.now()}.${ext}`;
+              }
+              allFiles.push({ file, path: fileName });
+            }
+          }
+        }
+        
+        if (allFiles.length > 0) {
+          addFilesWithValidation(allFiles);
+        }
+      } catch (err) {
+        console.error('Error processing paste:', err);
+        setError('Failed to paste files. Please try again.');
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+    
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [disabled, isProcessing, addFilesWithValidation]);
 
   const removeFile = (index: number) => {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setError(null);
+  };
+
+  const clearAllFiles = () => {
+    setSelectedFiles([]);
     setError(null);
   };
 
@@ -197,8 +287,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
   };
 
   const totalSize = calculateTotalSize(selectedFiles);
-  const maxSize = 5 * 1024 * 1024 * 1024;
-  const isOverSize = totalSize > maxSize;
+  const isOverSize = totalSize > MAX_SIZE;
 
   return (
     <div className="w-full max-w-xl mx-auto space-y-4">
@@ -229,6 +318,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
 
       {/* Drop Zone */}
       <div
+        ref={dropZoneRef}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -251,7 +341,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
         <input
           ref={directoryInputRef}
           type="file"
-          {...({ webkitdirectory: '' } as any)}
+          {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
           multiple
           onChange={handleDirectoryInput}
           className="hidden"
@@ -280,7 +370,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
               or <span className="text-accent-light font-medium">browse</span> from your device
             </p>
             <p className="text-xs text-white/20 mt-3">
-              Up to 5GB per transfer · Folders supported
+              Up to 5GB per transfer · Folders supported · Ctrl+V to paste
             </p>
           </div>
         </div>
@@ -306,18 +396,34 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
               </span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
                   className="flex items-center gap-1.5 text-xs text-accent-light hover:text-accent transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Add files
                 </button>
                 <button
-                  onClick={() => directoryInputRef.current?.click()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    directoryInputRef.current?.click();
+                  }}
                   className="flex items-center gap-1.5 text-xs text-accent-light hover:text-accent transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
                 >
                   <Folder className="w-3.5 h-3.5" />
                   Add folder
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearAllFiles();
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-500/10"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Clear all
                 </button>
               </div>
             </div>
@@ -370,7 +476,10 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
                 </div>
                 
                 <button
-                  onClick={handleUpload}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUpload();
+                  }}
                   disabled={disabled || isOverSize || isProcessing}
                   className="btn-primary px-8 py-3 rounded-xl font-medium text-sm shadow-lg shadow-accent/20 hover:shadow-accent/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
