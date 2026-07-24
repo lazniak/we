@@ -53,9 +53,9 @@ export default function Logo({ size = 'md', showTagline = false }: LogoProps) {
       <div className={`relative flex items-center ${config.gap}`}>
         <HexMark className={`${config.mark} shrink-0`} />
 
-        <div className={`flex items-baseline ${size === 'lg' ? 'gap-2' : 'gap-1.5'}`}>
+        <div className="flex items-baseline">
           <span className={`font-display ${config.text} text-white`}>HEXART</span>
-          <span className={`font-display ${config.text} font-light gradient-text`}>Transfer</span>
+          <span className={`font-display ${config.text} font-light gradient-text`}>.io</span>
         </div>
       </div>
 
