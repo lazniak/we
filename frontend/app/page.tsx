@@ -6,7 +6,9 @@ import UploadProgress from '@/components/UploadProgress';
 import ShareLink from '@/components/ShareLink';
 import Stats from '@/components/Stats';
 import TransferHistory from '@/components/TransferHistory';
+import HexartPromo from '@/components/HexartPromo';
 import Logo from '@/components/Logo';
+import SiteFooter from '@/components/SiteFooter';
 import { finishTransfer, UploadAbortedError, uploadFiles } from '@/lib/uploader';
 import {
   getOwnerToken,
@@ -14,6 +16,7 @@ import {
   saveTransferToHistory,
   updateTransferStatus,
 } from '@/lib/transferHistory';
+import { plural } from '@/lib/format';
 import type { InitTransferResponse, UploadState } from '@/lib/types';
 
 const initialState: UploadState = {
@@ -40,9 +43,8 @@ export default function HomePage() {
   const isBusy =
     state.phase === 'preparing' || state.phase === 'uploading' || state.phase === 'finishing';
 
-  // Closing the tab mid upload throws the transfer away, so the browser is
-  // asked to confirm. Browsers only honour this after a real interaction,
-  // which uploading always involves.
+  // Zamknięcie karty w trakcie wysyłki przerywa transfer, więc przeglądarka
+  // prosi o potwierdzenie.
   useEffect(() => {
     if (!isBusy) return;
 
@@ -91,10 +93,14 @@ export default function HomePage() {
 
       if (!response.ok) {
         const detail = await response.json().catch(() => null);
-        throw new Error(detail?.error || 'Could not start the transfer');
+        throw new Error(detail?.error || 'Nie udało się rozpocząć transferu');
       }
 
       const init = (await response.json()) as InitTransferResponse;
+      const label =
+        init.files.length === 1
+          ? init.files[0].path
+          : `${init.files.length} ${plural(init.files.length, 'plik', 'pliki', 'plików')}`;
 
       setExpiresAt(init.expiresAt);
       setState((previous) => ({
@@ -102,14 +108,14 @@ export default function HomePage() {
         phase: 'uploading',
         transferId: init.transferId,
         shareUrl: init.shareUrl,
-        filename: init.files.length === 1 ? init.files[0].path : `${init.files.length} files`,
+        filename: label,
         totalSize: init.totalSize,
       }));
 
       saveTransferToHistory({
         transferId: init.transferId,
         shareUrl: init.shareUrl,
-        filename: init.files.length === 1 ? init.files[0].path : `${init.files.length} files`,
+        filename: label,
         expiresAt: init.expiresAt,
         status: 'uploading',
         ownerToken: init.ownerToken,
@@ -149,7 +155,7 @@ export default function HomePage() {
       setState((previous) => ({
         ...previous,
         phase: 'error',
-        error: error instanceof Error ? error.message : 'Something went wrong',
+        error: error instanceof Error ? error.message : 'Coś poszło nie tak',
       }));
     } finally {
       abortRef.current = null;
@@ -160,8 +166,7 @@ export default function HomePage() {
     abortRef.current?.abort();
     abortRef.current = null;
 
-    // The half uploaded payload is dropped straight away instead of waiting
-    // for the retention sweep to notice it.
+    // Niedokończona paczka znika od razu, bez czekania na sprzątanie.
     const transferId = state.transferId;
     if (transferId) {
       const ownerToken = getOwnerToken(transferId);
@@ -193,8 +198,9 @@ export default function HomePage() {
 
         {showDropZone && (
           <div className="text-center mb-8 animate-fade-in">
-            <p className="text-sm text-white/40 max-w-sm mx-auto">
-              Share up to 5GB. No signup. Folders keep their structure. Links expire in 3–7 days.
+            <p className="text-sm text-white/40 max-w-md mx-auto leading-relaxed">
+              Wyślij do 5&nbsp;GB bez zakładania konta. Katalogi zachowują strukturę,
+              a pliki kasują się same po wygaśnięciu linku.
             </p>
           </div>
         )}
@@ -220,13 +226,17 @@ export default function HomePage() {
             <div className="flex justify-center">
               <button
                 onClick={handleReset}
-                className="text-xs text-white/30 hover:text-white/60 transition-colors px-4 py-2"
+                className="text-xs text-white/30 hover:text-accent transition-colors px-4 py-2"
               >
-                {state.phase === 'error' ? 'Start over' : 'Transfer another'}
+                {state.phase === 'error' ? 'Spróbuj od nowa' : 'Wyślij coś jeszcze'}
               </button>
             </div>
           )}
         </div>
+
+        {/* Promo studia towarzyszy też ekranowi „gotowe” — to moment,
+            w którym ktoś właśnie skopiował link i ma chwilę uwagi. */}
+        {(showDropZone || state.phase === 'complete') && <HexartPromo />}
 
         {showDropZone && (
           <>
@@ -235,6 +245,8 @@ export default function HomePage() {
           </>
         )}
       </div>
+
+      <SiteFooter />
     </main>
   );
 }

@@ -2,38 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Palette lifted from hexart.io so the transfer tool reads as part of the
+ * studio, not as a separate product: near black canvas, gold accent, glass
+ * surfaces, Outfit throughout.
+ */
 :root {
-  --bg-primary: #050505;
-  --bg-secondary: rgba(255, 255, 255, 0.03);
-  --bg-tertiary: rgba(255, 255, 255, 0.06);
-  --accent: #3b82f6;
-  --accent-light: #60a5fa;
-  --accent-glow: rgba(59, 130, 246, 0.15);
+  --bg-primary: #0a0a0c;
+  --bg-darker: #050508;
+  --bg-card: rgba(20, 20, 22, 0.7);
+
+  --accent: #d4af37;
+  --accent-light: #e8c96a;
+  --accent-dim: rgba(212, 175, 55, 0.2);
+  --accent-glow: rgba(212, 175, 55, 0.12);
+
   --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.5);
-  --text-muted: rgba(255, 255, 255, 0.3);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-light: rgba(255, 255, 255, 0.12);
+  --text-secondary: #d1d5db;
+  --text-gray: #b0b8c4;
+  --text-muted: rgba(255, 255, 255, 0.32);
+
+  --glass-bg: rgba(255, 255, 255, 0.02);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+
+  --ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 * {
   box-sizing: border-box;
-}
-
-/* Disable text selection */
-body {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-}
-
-/* Allow selection in inputs */
-input, textarea {
-  -webkit-user-select: text;
-  -moz-user-select: text;
-  -ms-user-select: text;
-  user-select: text;
 }
 
 html {
@@ -43,34 +40,43 @@ html {
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: var(--font-saira), 'Saira', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-outfit), Outfit, -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
 }
 
-/* Font utilities */
+/* Anything the user may legitimately want to copy stays selectable. */
+input,
+textarea,
+.selectable {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  user-select: text;
+}
+
 .font-display {
-  font-family: var(--font-roboto-condensed), 'Roboto Condensed', sans-serif;
+  font-family: var(--font-outfit), Outfit, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 .font-body {
-  font-family: var(--font-saira), 'Saira', sans-serif;
+  font-family: var(--font-outfit), Outfit, sans-serif;
 }
 
-/* Subtle background gradient */
+/* Ambient gold wash, the same idea as the studio site's hero glow */
 body::before {
   content: '';
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, var(--accent-glow), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(59, 130, 246, 0.05), transparent);
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 45% at 50% -15%, var(--accent-glow), transparent),
+    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(212, 175, 55, 0.05), transparent);
   pointer-events: none;
   z-index: -1;
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -81,97 +87,123 @@ body::before {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(212, 175, 55, 0.18);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(212, 175, 55, 0.35);
 }
 
-/* Glass morphism - Enhanced glossy effects */
+/* ------------------------------------------------------------ surfaces */
+
 .glass {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
 .glass-strong {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
-  backdrop-filter: blur(40px) saturate(200%);
-  -webkit-backdrop-filter: blur(40px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 
-    0 12px 48px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+  backdrop-filter: blur(32px) saturate(160%);
+  -webkit-backdrop-filter: blur(32px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .glass-accent {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.05));
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  box-shadow: 
-    0 8px 32px rgba(59, 130, 246, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.09), rgba(212, 175, 55, 0.03));
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  box-shadow: 0 8px 32px rgba(212, 175, 55, 0.1);
 }
 
-/* Gradient text */
 .gradient-text {
-  background: linear-gradient(135deg, var(--accent-light), var(--accent));
+  background: linear-gradient(120deg, #f3e3a8, var(--accent) 55%, #b08d24);
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-/* Progress bar */
 .progress-bar {
   background: linear-gradient(90deg, var(--accent), var(--accent-light));
 }
 
-/* Subtle glow */
 .glow {
   box-shadow: 0 0 60px -15px var(--accent-glow);
 }
 
-/* Animations */
+/* ---------------------------------------------------------- animations */
+
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.2); }
-  50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.4); }
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.16);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(212, 175, 55, 0.32);
+  }
 }
 
-@keyframes shine {
-  0% { transform: translateX(-100%) skewX(-12deg); }
-  100% { transform: translateX(200%) skewX(-12deg); }
+@keyframes sheen {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(320%) skewX(-18deg);
+  }
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.4s ease-out forwards;
+  animation: fadeIn 0.4s var(--ease) forwards;
 }
 
 .animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
+  animation: pulse-glow 2.6s ease-in-out infinite;
 }
 
-.group-hover\:animate-shine:hover,
-.animate-shine {
-  animation: shine 1.5s ease-in-out;
+/* Slow gold sheen sweeping across the promo card */
+.animate-sheen::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.14), transparent);
+  animation: sheen 6s var(--ease) infinite;
+  pointer-events: none;
 }
 
-/* Drop zone - Enhanced glossy */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-pulse-glow,
+  .animate-sheen::after {
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------------- drop target */
+
 .drop-zone {
   position: relative;
-  transition: all 0.3s ease;
+  transition: all 0.3s var(--ease);
   overflow: hidden;
 }
 
@@ -180,154 +212,90 @@ body::before {
   position: absolute;
   inset: 0;
   border-radius: 24px;
-  padding: 2px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.3), rgba(255, 255, 255, 0.05));
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
-  transition: all 0.3s ease;
-  opacity: 0.6;
-}
-
-.drop-zone::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
+  transition: all 0.3s var(--ease);
+  opacity: 0.5;
 }
 
 .drop-zone:hover::before,
 .drop-zone.active::before {
-  background: linear-gradient(135deg, var(--accent), rgba(59, 130, 246, 0.4));
+  background: linear-gradient(135deg, var(--accent), rgba(212, 175, 55, 0.35));
   opacity: 1;
-  box-shadow: 0 0 40px rgba(59, 130, 246, 0.3);
-}
-
-.drop-zone:hover::after,
-.drop-zone.active::after {
-  opacity: 1;
+  box-shadow: 0 0 40px rgba(212, 175, 55, 0.22);
 }
 
 .drop-zone:hover,
 .drop-zone.active {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.03));
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.06), rgba(212, 175, 55, 0.02));
+}
+
+.drop-zone.active {
   transform: scale(1.01);
 }
 
-/* Button styles - Enhanced glossy */
+/* ----------------------------------------------------------- controls */
+
+/* Primary action: filled gold on dark text, the one thing meant to be clicked */
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-light));
-  color: white;
-  transition: all 0.3s ease;
+  background: linear-gradient(135deg, var(--accent-light), var(--accent));
+  color: #14120a;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 30px;
+  transition: all 0.3s var(--ease);
   position: relative;
   overflow: hidden;
-  box-shadow: 
-    0 4px 16px rgba(59, 130, 246, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 18px rgba(212, 175, 55, 0.22);
 }
 
-.btn-primary::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s ease;
-}
-
-.btn-primary:hover::before {
-  left: 100%;
-}
-
-.btn-primary:hover {
-  background: linear-gradient(135deg, var(--accent-light), var(--accent));
-  box-shadow: 
-    0 8px 32px rgba(59, 130, 246, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 8px 30px rgba(212, 175, 55, 0.34);
   transform: translateY(-1px);
 }
 
 .btn-primary:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
   transform: none;
 }
 
-/* Input styles - Enhanced glossy */
+/* Secondary action: the studio site's outline pill */
+.btn-outline {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--accent);
+  border-radius: 30px;
+  letter-spacing: 0.5px;
+  transition: all 0.3s var(--ease);
+}
+
+.btn-outline:hover {
+  background: rgba(212, 175, 55, 0.1);
+  box-shadow: 0 0 24px rgba(212, 175, 55, 0.18);
+}
+
 .input-glass {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
   color: white;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.25s var(--ease);
 }
 
 .input-glass:focus {
-  border-color: var(--accent);
+  border-color: rgba(212, 175, 55, 0.5);
   outline: none;
-  box-shadow: 
-    0 0 0 3px rgba(59, 130, 246, 0.15),
-    inset 0 2px 4px rgba(0, 0, 0, 0.1);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
 }
 
-/* Slider styles - Glossy */
-.slider-glossy {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-  border-radius: 8px;
-}
+/* ---------------------------------------------------------- scrollbars */
 
-.slider-glossy::-webkit-slider-thumb {
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent-light), var(--accent));
-  cursor: pointer;
-  box-shadow: 
-    0 2px 8px rgba(59, 130, 246, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  transition: all 0.2s ease;
-}
-
-.slider-glossy::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
-  box-shadow: 
-    0 4px 12px rgba(59, 130, 246, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
-}
-
-.slider-glossy::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: none;
-  background: linear-gradient(135deg, var(--accent-light), var(--accent));
-  cursor: pointer;
-  box-shadow: 
-    0 2px 8px rgba(59, 130, 246, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  transition: all 0.2s ease;
-}
-
-.slider-glossy::-moz-range-thumb:hover {
-  transform: scale(1.15);
-  box-shadow: 
-    0 4px 12px rgba(59, 130, 246, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
-}
-
-/* Scrollable strips that should not show a bar (breadcrumbs) */
 .no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -337,7 +305,6 @@ body::before {
   display: none;
 }
 
-/* Custom scrollbar - Enhanced */
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;
 }
@@ -348,11 +315,10 @@ body::before {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
+  background: rgba(212, 175, 55, 0.22);
   border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.15));
+  background: rgba(212, 175, 55, 0.4);
 }

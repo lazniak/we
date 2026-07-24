@@ -35,7 +35,7 @@ export default function Stats() {
         */}
         <Metric
           icon={<ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
-          label="Sent all time"
+          label="Wysłano łącznie"
           value={`${stats.totalTransfers} · ${stats.totalGB} GB`}
         />
 
@@ -43,11 +43,11 @@ export default function Stats() {
 
         <Metric
           icon={<HardDrive className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
-          label="Stored now"
+          label="Teraz na serwerze"
           value={
             stats.storedTransfers > 0
               ? `${stats.storedTransfers} · ${formatBytes(stats.storedBytes)}`
-              : 'nothing'
+              : 'nic'
           }
         />
 
@@ -56,7 +56,7 @@ export default function Stats() {
             <span className="w-px h-4 bg-white/10 hidden sm:block" />
             <Metric
               icon={<Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-accent-light" />}
-              label="Uploading"
+              label="Trwa wysyłka"
               value={String(stats.activeTransfers)}
               accent
             />
@@ -65,7 +65,7 @@ export default function Stats() {
       </div>
 
       <p className="mt-3 text-center text-[10px] text-white/15">
-        Everything deletes itself when its link expires.
+        Wszystko kasuje się samo, gdy wygaśnie link.
       </p>
     </div>
   );

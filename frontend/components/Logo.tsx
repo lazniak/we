@@ -7,50 +7,63 @@ interface LogoProps {
   showTagline?: boolean;
 }
 
+const SIZES = {
+  sm: { text: 'text-lg', mark: 'w-4 h-4', gap: 'gap-2', tagline: 'text-[8px] mt-1' },
+  md: { text: 'text-2xl sm:text-3xl', mark: 'w-6 h-6', gap: 'gap-2.5', tagline: 'text-[9px] mt-2' },
+  lg: { text: 'text-3xl sm:text-5xl', mark: 'w-8 h-8 sm:w-10 sm:h-10', gap: 'gap-3', tagline: 'text-[10px] mt-3' },
+};
+
+/** The studio's hexagon mark, with the transfer arrow inside it. */
+function HexMark({ className }: { className: string }) {
+  return (
+    <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id="hexart-gold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#f3e3a8" />
+          <stop offset="55%" stopColor="#d4af37" />
+          <stop offset="100%" stopColor="#a8811f" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M16 2.2 28 9.1v13.8L16 29.8 4 22.9V9.1z"
+        fill="none"
+        stroke="url(#hexart-gold)"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M16 21.5V10.8m0 0-4.2 4.2M16 10.8l4.2 4.2"
+        fill="none"
+        stroke="url(#hexart-gold)"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function Logo({ size = 'md', showTagline = false }: LogoProps) {
-  const sizeConfig = {
-    sm: { text: 'text-xl', gap: 'gap-1', dot: 'w-1 h-1', tagline: 'text-[8px] mt-1.5' },
-    md: { text: 'text-3xl', gap: 'gap-1.5', dot: 'w-1.5 h-1.5', tagline: 'text-[9px] mt-2' },
-    lg: { text: 'text-5xl', gap: 'gap-2', dot: 'w-2 h-2', tagline: 'text-[10px] mt-3' },
-  };
-  
-  const config = sizeConfig[size];
+  const config = SIZES[size];
 
   return (
     <div className="relative inline-flex flex-col items-center group">
-      {/* Subtle ambient glow */}
-      <div className="absolute -inset-8 bg-accent/5 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-      
-      {/* Logo */}
+      <div className="absolute -inset-10 bg-accent/5 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+
       <div className={`relative flex items-center ${config.gap}`}>
-        {/* "we" - bright */}
-        <span className={`font-display font-semibold ${config.text} text-white tracking-tight`}>
-          we
-        </span>
-        
-        {/* Animated dot */}
-        <span className={`${config.dot} rounded-full bg-accent relative`}>
-          <span className={`absolute inset-0 ${config.dot} rounded-full bg-accent animate-ping opacity-40`} />
-        </span>
-        
-        {/* "pablogfx" - medium */}
-        <span className={`font-display font-light ${config.text} text-white/60 tracking-tight`}>
-          pablogfx
-        </span>
-        
-        {/* Static dot */}
-        <span className={`${config.dot} rounded-full bg-white/20`} />
-        
-        {/* "com" - dim */}
-        <span className={`font-display font-light ${config.text} text-white/30 tracking-tight`}>
-          com
-        </span>
+        <HexMark className={`${config.mark} shrink-0`} />
+
+        <div className={`flex items-baseline ${size === 'lg' ? 'gap-2' : 'gap-1.5'}`}>
+          <span className={`font-display ${config.text} text-white`}>HEXART</span>
+          <span className={`font-display ${config.text} font-light gradient-text`}>Transfer</span>
+        </div>
       </div>
-      
-      {/* Tagline */}
+
       {showTagline && (
-        <span className={`${config.tagline} font-body font-light uppercase tracking-[0.25em] text-white/20`}>
-          instant file sharing
+        <span
+          className={`${config.tagline} font-body font-light uppercase tracking-[0.28em] text-white/25`}
+        >
+          Pliki bez kombinowania
         </span>
       )}
     </div>

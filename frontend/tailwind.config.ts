@@ -1,5 +1,6 @@
 import type { Config } from 'tailwindcss';
 
+/** Values mirror the HEXART studio site so both surfaces stay in step. */
 const config: Config = {
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
@@ -9,19 +10,19 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ['var(--font-roboto-condensed)', 'Roboto Condensed', 'sans-serif'],
-        body: ['var(--font-saira)', 'Saira', 'sans-serif'],
+        display: ['var(--font-outfit)', 'Outfit', 'sans-serif'],
+        body: ['var(--font-outfit)', 'Outfit', 'sans-serif'],
       },
       colors: {
         bg: {
-          primary: '#050505',
-          secondary: 'rgba(255, 255, 255, 0.03)',
-          tertiary: 'rgba(255, 255, 255, 0.06)',
+          primary: '#0a0a0c',
+          darker: '#050508',
+          card: 'rgba(20, 20, 22, 0.7)',
         },
         accent: {
-          DEFAULT: '#3b82f6',
-          light: '#60a5fa',
-          dark: '#2563eb',
+          DEFAULT: '#d4af37',
+          light: '#e8c96a',
+          dark: '#a8811f',
         },
         border: {
           DEFAULT: 'rgba(255, 255, 255, 0.08)',
@@ -29,9 +30,8 @@ const config: Config = {
         },
       },
       animation: {
-        'fade-in': 'fadeIn 0.4s ease-out forwards',
-        'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
-        'shine': 'shine 1.5s ease-in-out',
+        'fade-in': 'fadeIn 0.4s cubic-bezier(0.25,0.46,0.45,0.94) forwards',
+        'pulse-glow': 'pulse-glow 2.6s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -39,12 +39,8 @@ const config: Config = {
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         'pulse-glow': {
-          '0%, 100%': { boxShadow: '0 0 20px rgba(59, 130, 246, 0.2)' },
-          '50%': { boxShadow: '0 0 40px rgba(59, 130, 246, 0.4)' },
-        },
-        shine: {
-          '0%': { transform: 'translateX(-100%) skewX(-12deg)' },
-          '100%': { transform: 'translateX(200%) skewX(-12deg)' },
+          '0%, 100%': { boxShadow: '0 0 20px rgba(212, 175, 55, 0.16)' },
+          '50%': { boxShadow: '0 0 40px rgba(212, 175, 55, 0.32)' },
         },
       },
       backdropBlur: {

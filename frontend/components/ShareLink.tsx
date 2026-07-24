@@ -23,7 +23,7 @@ export default function ShareLink({ shareUrl, expiresAt, isUploading }: ShareLin
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      window.prompt('Copy this link:', fullUrl);
+      window.prompt('Skopiuj ten link:', fullUrl);
     }
   };
 
@@ -33,7 +33,7 @@ export default function ShareLink({ shareUrl, expiresAt, isUploading }: ShareLin
         <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
           <span className="flex items-center gap-2 text-xs text-white/40 uppercase tracking-wider">
             {isUploading && <Loader2 className="w-3.5 h-3.5 text-accent-light animate-spin" />}
-            {isUploading ? 'Link is already live' : 'Share link'}
+            {isUploading ? 'Link już działa' : 'Link do udostępnienia'}
           </span>
           {expiresAt && (
             <span className="text-[11px] text-white/25">{formatRemaining(expiresAt)}</span>
@@ -59,12 +59,12 @@ export default function ShareLink({ shareUrl, expiresAt, isUploading }: ShareLin
             {copied ? (
               <>
                 <Check className="w-4 h-4" />
-                Copied
+                Skopiowano
               </>
             ) : (
               <>
                 <Copy className="w-4 h-4" />
-                Copy
+                Kopiuj
               </>
             )}
           </button>
@@ -72,7 +72,7 @@ export default function ShareLink({ shareUrl, expiresAt, isUploading }: ShareLin
 
         {isUploading && (
           <p className="mt-3 text-xs text-accent-light/60 text-center">
-            Send it now — the recipient sees live progress and can download the moment it lands.
+            Wyślij go teraz — odbiorca widzi postęp na żywo i pobierze pliki, gdy tylko dotrą.
           </p>
         )}
       </div>

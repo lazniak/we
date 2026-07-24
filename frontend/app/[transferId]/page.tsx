@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AlertCircle, Clock, Download, FileArchive, Loader2 } from 'lucide-react';
 import { api, triggerDownload } from '@/lib/api';
-import { formatBytes, formatEta, formatRemaining } from '@/lib/format';
+import { formatBytes, formatEta, formatRemaining, plural } from '@/lib/format';
 import { TransferWebSocket } from '@/lib/websocket';
 import FileBrowser from '@/components/FileBrowser';
+import HexartPromo from '@/components/HexartPromo';
 import Logo from '@/components/Logo';
+import SiteFooter from '@/components/SiteFooter';
 import type { ProgressUpdate, TransferInfo } from '@/lib/types';
 
 type PageStatus = 'loading' | 'uploading' | 'ready' | 'expired' | 'not_found' | 'error';
@@ -22,7 +24,7 @@ export default function TransferPage() {
   const [eta, setEta] = useState<number | null>(null);
   const [backdrop, setBackdrop] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
 
-  // Kept in a ref so the polling effect does not restart on every update.
+  // Trzymane w ref, żeby efekt odpytujący nie restartował się przy każdej zmianie.
   const statusRef = useRef<PageStatus>('loading');
   statusRef.current = status;
 
@@ -62,7 +64,7 @@ export default function TransferPage() {
     void fetchTransfer();
   }, [fetchTransfer]);
 
-  // Live progress for whoever opens the link while the sender is still going.
+  // Podgląd postępu na żywo, gdy nadawca jeszcze wysyła.
   useEffect(() => {
     if (status !== 'uploading') return;
 
@@ -89,7 +91,7 @@ export default function TransferPage() {
 
     socket.connect();
 
-    // Polling is the safety net for when the websocket cannot get through.
+    // Odpytywanie jako zabezpieczenie, gdyby websocket się nie przebił.
     const poll = setInterval(() => {
       if (statusRef.current === 'uploading') void fetchTransfer();
     }, 4000);
@@ -105,9 +107,9 @@ export default function TransferPage() {
   const hasBrowser = entries.length > 0;
 
   const downloadLabel = useMemo(() => {
-    if (!transfer) return 'Download';
-    if (transfer.isSingleFile) return `Download (${formatBytes(transfer.total_size)})`;
-    return `Download all (${formatBytes(transfer.total_size)})`;
+    if (!transfer) return 'Pobierz';
+    const size = formatBytes(transfer.total_size);
+    return transfer.isSingleFile ? `Pobierz (${size})` : `Pobierz wszystko (${size})`;
   }, [transfer]);
 
   return (
@@ -146,24 +148,24 @@ export default function TransferPage() {
         <div className={hasBrowser ? 'w-full max-w-2xl' : 'w-full max-w-md'}>
           {status === 'loading' && (
             <div className="text-center animate-fade-in">
-              <Loader2 className="w-8 h-8 text-white/30 animate-spin mx-auto mb-4" />
-              <p className="text-sm text-white/40">Loading…</p>
+              <Loader2 className="w-8 h-8 text-accent/40 animate-spin mx-auto mb-4" />
+              <p className="text-sm text-white/40">Wczytywanie…</p>
             </div>
           )}
 
           {status === 'not_found' && (
             <Notice
               icon={<AlertCircle className="w-6 h-6 text-white/30" />}
-              title="Not found"
-              body="This transfer doesn't exist, has been deleted, or already expired."
+              title="Nie znaleziono"
+              body="Ten transfer nie istnieje, został usunięty albo już wygasł."
             />
           )}
 
           {status === 'expired' && (
             <Notice
               icon={<Clock className="w-6 h-6 text-white/30" />}
-              title="Expired"
-              body="This transfer has expired and the files were permanently deleted."
+              title="Link wygasł"
+              body="Ten transfer wygasł, a pliki zostały trwale usunięte z serwera."
             />
           )}
 
@@ -172,12 +174,12 @@ export default function TransferPage() {
               <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-5">
                 <AlertCircle className="w-6 h-6 text-red-400/60" />
               </div>
-              <h1 className="text-lg font-medium text-white/80 mb-2">Something went wrong</h1>
+              <h1 className="font-display text-lg text-white/80 mb-2">Coś poszło nie tak</h1>
               <button
                 onClick={() => window.location.reload()}
-                className="text-xs text-accent-light hover:text-accent transition-colors"
+                className="text-xs text-accent hover:text-accent-light transition-colors"
               >
-                Try again
+                Spróbuj ponownie
               </button>
             </div>
           )}
@@ -186,14 +188,16 @@ export default function TransferPage() {
             <div className="glass rounded-2xl p-6 animate-fade-in">
               <div className="flex justify-center mb-5">
                 <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center">
-                  <Loader2 className="w-6 h-6 text-accent-light animate-spin" />
+                  <Loader2 className="w-6 h-6 text-accent animate-spin" />
                 </div>
               </div>
 
               <div className="text-center mb-5">
-                <h1 className="text-base font-medium text-white/80 mb-1">Upload in progress</h1>
+                <h1 className="font-display text-base font-semibold text-white/80 mb-1">
+                  Trwa wysyłanie
+                </h1>
                 <p className="text-xs text-white/40">
-                  The sender is still uploading. This page updates by itself.
+                  Nadawca jeszcze przesyła pliki. Ta strona odświeża się sama.
                 </p>
               </div>
 
@@ -217,8 +221,10 @@ export default function TransferPage() {
                   {formatBytes(transfer.uploaded_size)} / {formatBytes(transfer.total_size)}
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-white/60 font-medium tabular-nums">{progress}%</span>
-                  {eta !== null && <span className="text-white/30">{formatEta(eta)}</span>}
+                  <span className="text-accent font-semibold tabular-nums">{progress}%</span>
+                  {eta !== null && formatEta(eta) && (
+                    <span className="text-white/30">zostało {formatEta(eta)}</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -228,11 +234,12 @@ export default function TransferPage() {
             <div className="glass rounded-2xl p-4 sm:p-6 animate-fade-in">
               <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
                 <div className="min-w-0">
-                  <h1 className="text-sm font-medium text-white/80 truncate">
+                  <h1 className="font-display text-sm font-semibold text-white/85 truncate">
                     {transfer.filename}
                   </h1>
                   <p className="text-xs text-white/35">
-                    {transfer.fileCount} {transfer.fileCount === 1 ? 'file' : 'files'} ·{' '}
+                    {transfer.fileCount}{' '}
+                    {plural(transfer.fileCount, 'plik', 'pliki', 'plików')} ·{' '}
                     {formatBytes(transfer.total_size)}
                   </p>
                 </div>
@@ -256,7 +263,7 @@ export default function TransferPage() {
 
               <button
                 onClick={() => triggerDownload(api.downloadAll(transferId))}
-                className="mt-4 w-full py-3.5 rounded-xl font-medium text-sm btn-primary flex items-center justify-center gap-2"
+                className="mt-4 w-full py-3.5 text-sm btn-primary flex items-center justify-center gap-2"
               >
                 <Download className="w-4 h-4" />
                 {downloadLabel}
@@ -265,19 +272,25 @@ export default function TransferPage() {
               <div className="mt-4 flex items-center justify-center gap-4 text-[11px] text-white/30 flex-wrap">
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  {formatRemaining(transfer.expires_at)}
+                  zostało {formatRemaining(transfer.expires_at)}
                 </span>
                 {transfer.download_count > 0 && (
                   <span>
-                    {transfer.download_count} download{transfer.download_count > 1 ? 's' : ''}
+                    {transfer.download_count}{' '}
+                    {plural(transfer.download_count, 'pobranie', 'pobrania', 'pobrań')}
                   </span>
                 )}
-                {!transfer.isSingleFile && <span>packed as ZIP on download</span>}
+                {!transfer.isSingleFile && <span>przy pobieraniu pakowane do ZIP</span>}
               </div>
             </div>
           )}
         </div>
+
+        {/* Odbiorca to zwykle ktoś, kto jeszcze nie zna studia. */}
+        {(status === 'ready' || status === 'expired' || status === 'not_found') && <HexartPromo />}
       </div>
+
+      <SiteFooter />
     </main>
   );
 }
@@ -296,10 +309,10 @@ function Notice({
       <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-5">
         {icon}
       </div>
-      <h1 className="text-lg font-medium text-white/80 mb-2">{title}</h1>
+      <h1 className="font-display text-lg text-white/80 mb-2">{title}</h1>
       <p className="text-sm text-white/40 mb-6">{body}</p>
-      <a href="/" className="text-xs text-accent-light hover:text-accent transition-colors">
-        Create a new transfer
+      <a href="/" className="text-xs text-accent hover:text-accent-light transition-colors">
+        Wyślij własne pliki
       </a>
     </div>
   );

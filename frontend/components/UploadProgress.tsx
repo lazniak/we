@@ -2,7 +2,7 @@
 
 import { AlertCircle, Check, Loader2, TriangleAlert, X } from 'lucide-react';
 import clsx from 'clsx';
-import { formatBytes, formatEta, formatSpeed } from '@/lib/format';
+import { formatBytes, formatEta, formatSpeed, plural } from '@/lib/format';
 import type { UploadState } from '@/lib/types';
 
 interface UploadProgressProps {
@@ -12,11 +12,11 @@ interface UploadProgressProps {
 
 const HEADLINE: Record<UploadState['phase'], string> = {
   idle: '',
-  preparing: 'Preparing…',
-  uploading: 'Uploading',
-  finishing: 'Finishing up…',
-  complete: 'Transfer ready',
-  error: 'Transfer failed',
+  preparing: 'Przygotowuję…',
+  uploading: 'Wysyłanie',
+  finishing: 'Kończę…',
+  complete: 'Gotowe',
+  error: 'Transfer nieudany',
 };
 
 export default function UploadProgress({ state, onCancel }: UploadProgressProps) {
@@ -33,27 +33,29 @@ export default function UploadProgress({ state, onCancel }: UploadProgressProps)
           <div
             className={clsx(
               'w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500',
-              isComplete && 'bg-accent/20',
-              isError && 'bg-red-500/20',
+              isComplete && 'bg-accent/15',
+              isError && 'bg-red-500/15',
               inFlight && 'bg-white/5',
             )}
           >
             {isComplete ? (
-              <Check className="w-6 h-6 text-accent-light" />
+              <Check className="w-6 h-6 text-accent" />
             ) : isError ? (
               <AlertCircle className="w-6 h-6 text-red-400" />
             ) : (
-              <Loader2 className="w-6 h-6 text-white/50 animate-spin" />
+              <Loader2 className="w-6 h-6 text-accent/70 animate-spin" />
             )}
           </div>
         </div>
 
         <div className="text-center mb-5">
-          <h3 className="text-base font-medium text-white/90 mb-1">{HEADLINE[phase]}</h3>
+          <h3 className="font-display text-base font-semibold text-white/90 mb-1">
+            {HEADLINE[phase]}
+          </h3>
           <p className="text-xs text-white/40 truncate px-2">
             {phase === 'uploading' && currentFile
               ? currentFile
-              : `${fileCount} ${fileCount === 1 ? 'file' : 'files'} · ${formatBytes(totalSize)}`}
+              : `${fileCount} ${plural(fileCount, 'plik', 'pliki', 'plików')} · ${formatBytes(totalSize)}`}
           </p>
         </div>
 
@@ -81,15 +83,17 @@ export default function UploadProgress({ state, onCancel }: UploadProgressProps)
 
               <div className="flex items-center gap-3">
                 {speed !== null && <span className="text-white/30">{formatSpeed(speed)}</span>}
-                {eta !== null && <span className="text-white/30">{formatEta(eta)}</span>}
-                <span className="text-white/60 font-medium tabular-nums">{progress}%</span>
+                {eta !== null && formatEta(eta) && (
+                  <span className="text-white/30">zostało {formatEta(eta)}</span>
+                )}
+                <span className="text-accent font-semibold tabular-nums">{progress}%</span>
               </div>
             </div>
 
             <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between gap-3 flex-wrap">
               <p className="flex items-center gap-2 text-[11px] text-amber-300/70">
                 <TriangleAlert className="w-3.5 h-3.5 shrink-0" />
-                Keep this tab open until the transfer completes.
+                Nie zamykaj tej karty, dopóki transfer się nie skończy.
               </p>
 
               {onCancel && (
@@ -98,7 +102,7 @@ export default function UploadProgress({ state, onCancel }: UploadProgressProps)
                   className="flex items-center gap-1.5 text-[11px] text-white/40 hover:text-red-300 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-500/10"
                 >
                   <X className="w-3 h-3" />
-                  Cancel
+                  Anuluj
                 </button>
               )}
             </div>
@@ -107,7 +111,7 @@ export default function UploadProgress({ state, onCancel }: UploadProgressProps)
 
         {isComplete && (
           <p className="text-center text-xs text-white/40">
-            {formatBytes(totalSize)} uploaded · the link above is live and can be shared.
+            Wysłano {formatBytes(totalSize)} — link powyżej już działa, możesz go udostępnić.
           </p>
         )}
 

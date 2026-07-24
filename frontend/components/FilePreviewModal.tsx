@@ -91,14 +91,14 @@ export default function FilePreviewModal({
         <button
           onClick={() => triggerDownload(api.downloadFile(transferId, entry.id))}
           className="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-          aria-label="Download this file"
+          aria-label="Pobierz ten plik"
         >
           <Download className="w-4 h-4" />
         </button>
         <button
           onClick={onClose}
           className="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-          aria-label="Close preview"
+          aria-label="Zamknij podgląd"
         >
           <X className="w-4 h-4" />
         </button>
@@ -112,7 +112,7 @@ export default function FilePreviewModal({
               goto(-1);
             }}
             className="absolute left-2 sm:left-4 p-3 rounded-full bg-white/5 hover:bg-white/15 text-white/70 transition-colors z-10"
-            aria-label="Previous file"
+            aria-label="Poprzedni plik"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -161,7 +161,7 @@ export default function FilePreviewModal({
                 <Loader2 className="w-5 h-5 animate-spin text-white/40 mx-auto mt-8" />
               ) : (
                 <pre className="text-xs text-white/70 whitespace-pre-wrap break-words select-text font-mono">
-                  {textContent ?? 'Preview unavailable.'}
+                  {textContent ?? 'Podgląd niedostępny.'}
                 </pre>
               )}
             </div>
@@ -175,7 +175,7 @@ export default function FilePreviewModal({
               goto(1);
             }}
             className="absolute right-2 sm:right-4 p-3 rounded-full bg-white/5 hover:bg-white/15 text-white/70 transition-colors z-10"
-            aria-label="Next file"
+            aria-label="Następny plik"
           >
             <ChevronRight className="w-5 h-5" />
           </button>

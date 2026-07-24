@@ -30,7 +30,7 @@ export default function TransferHistory() {
       setCopiedId(item.transferId);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      window.prompt('Copy this link:', fullUrl);
+      window.prompt('Skopiuj ten link:', fullUrl);
     }
   };
 
@@ -64,7 +64,7 @@ export default function TransferHistory() {
     <div className="w-full max-w-xl mx-auto mt-6 px-4 animate-fade-in">
       <div className="glass rounded-2xl p-3 sm:p-4">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs text-white/40 uppercase tracking-wider">Your transfers</span>
+          <span className="text-xs text-white/40 uppercase tracking-wider">Twoje transfery</span>
           <span className="text-xs text-white/30">{history.length}</span>
         </div>
 
@@ -79,7 +79,7 @@ export default function TransferHistory() {
                   <p className="text-xs text-white/70 truncate font-medium">{item.filename}</p>
                   {item.status === 'uploading' && (
                     <span className="text-[10px] text-accent-light/60 uppercase tracking-wider shrink-0">
-                      uploading
+                      wysyłanie
                     </span>
                   )}
                 </div>
@@ -106,8 +106,8 @@ export default function TransferHistory() {
                       ? 'bg-accent/20 text-accent-light'
                       : 'bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/60',
                   )}
-                  aria-label="Copy link"
-                  title="Copy link"
+                  aria-label="Kopiuj link"
+                  title="Kopiuj link"
                 >
                   {copiedId === item.transferId ? (
                     <Check className="w-3 h-3" />
@@ -121,8 +121,8 @@ export default function TransferHistory() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/60 transition-all"
-                  aria-label="Open in a new tab"
-                  title="Open"
+                  aria-label="Otwórz w nowej karcie"
+                  title="Otwórz"
                 >
                   <ExternalLink className="w-3 h-3" />
                 </a>
@@ -135,11 +135,11 @@ export default function TransferHistory() {
                       ? 'bg-red-500/20 text-red-300 px-2 py-1.5 text-[10px] font-medium'
                       : 'bg-white/5 hover:bg-red-500/20 text-white/40 hover:text-red-400 p-1.5',
                   )}
-                  aria-label="Delete transfer from the server"
-                  title="Delete from the server"
+                  aria-label="Usuń transfer z serwera"
+                  title="Usuń z serwera"
                 >
                   <Trash2 className="w-3 h-3" />
-                  {pendingDelete === item.transferId && 'Sure?'}
+                  {pendingDelete === item.transferId && 'Na pewno?'}
                 </button>
               </div>
             </div>

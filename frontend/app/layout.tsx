@@ -1,47 +1,42 @@
 import type { Metadata, Viewport } from 'next';
-import { Saira, Roboto_Condensed } from 'next/font/google';
+import { Outfit } from 'next/font/google';
 import './globals.css';
 
-const saira = Saira({ 
-  subsets: ['latin'],
+const outfit = Outfit({
+  subsets: ['latin', 'latin-ext'],
   display: 'swap',
-  variable: '--font-saira',
+  variable: '--font-outfit',
 });
 
-const robotoCondensed = Roboto_Condensed({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-roboto-condensed',
-});
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://transfer.hexart.io';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://we.pablogfx.com'),
-  title: 'we.pablogfx.com - Simple File Transfer',
-  description: 'Transfer files up to 5GB with a simple drag and drop. No signup required.',
+  metadataBase: new URL(SITE_URL),
+  title: 'HEXART Transfer — szybkie przesyłanie plików',
+  description:
+    'Wyślij do 5 GB bez zakładania konta. Katalogi zachowują strukturę, link wygasa po 3–7 dniach, a pliki kasują się same.',
   openGraph: {
-    title: 'we.pablogfx.com - Simple File Transfer',
-    description: 'Transfer files up to 5GB with a simple drag and drop. No signup required.',
+    title: 'HEXART Transfer — szybkie przesyłanie plików',
+    description:
+      'Wyślij do 5 GB bez zakładania konta. Katalogi zachowują strukturę, a pliki kasują się same po wygaśnięciu linku.',
     type: 'website',
+    locale: 'pl_PL',
+    siteName: 'HEXART Transfer',
   },
+  robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#0a0a0b',
+  themeColor: '#0a0a0c',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${saira.variable} ${robotoCondensed.variable}`}>
-      <body className="min-h-screen bg-bg-primary antialiased">
-        <div className="min-h-screen flex flex-col">
-          {children}
-        </div>
+    <html lang="pl" className={outfit.variable}>
+      <body className="min-h-screen antialiased">
+        <div className="min-h-screen flex flex-col">{children}</div>
       </body>
     </html>
   );

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, File, Folder, Plus, Upload, X } from 'lucide-react';
 import clsx from 'clsx';
-import { formatBytes } from '@/lib/format';
+import { formatBytes, plural } from '@/lib/format';
 
 export interface FilesMetadata {
   files: File[];
@@ -109,13 +109,13 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
       const combined = [...previous, ...fresh];
 
       if (combined.length > MAX_FILES) {
-        setError(`Too many files (limit is ${MAX_FILES.toLocaleString()})`);
+        setError(`Za dużo plików (limit: ${MAX_FILES.toLocaleString('pl-PL')})`);
         return previous;
       }
 
       const total = combined.reduce((acc, item) => acc + item.file.size, 0);
       if (total > MAX_SIZE) {
-        setError(`Total size (${formatBytes(total)}) exceeds the 5GB limit`);
+        setError(`Łączny rozmiar (${formatBytes(total)}) przekracza limit 5 GB`);
         return previous;
       }
 
@@ -178,14 +178,14 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
         }
 
         if (files.length === 0 && dirs.size === 0) {
-          setError('Nothing to upload was found in that drop.');
+          setError('Nie znaleziono niczego do wysłania.');
           return;
         }
 
         addFiles(files, [...dirs]);
       } catch (err) {
         console.error('Drop failed:', err);
-        setError('Could not read those files. Please try again.');
+        setError('Nie udało się odczytać plików. Spróbuj ponownie.');
       } finally {
         setIsProcessing(false);
       }
@@ -294,7 +294,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
       {/* Expiry */}
       <div className="glass rounded-2xl p-3 sm:p-4 animate-fade-in">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <span className="text-xs text-white/40 uppercase tracking-wider">Link expires in</span>
+          <span className="text-xs text-white/40 uppercase tracking-wider">Link wygasa za</span>
           <div className="flex items-center gap-1 p-1 bg-white/[0.03] rounded-xl">
             {[3, 4, 5, 6, 7].map((day) => (
               <button
@@ -309,7 +309,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
                   disabled && 'opacity-50 cursor-not-allowed',
                 )}
               >
-                {day}d
+                {day} dni
               </button>
             ))}
           </div>
@@ -336,7 +336,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
         }}
         role="button"
         tabIndex={0}
-        aria-label="Drop files or folders here, or browse"
+        aria-label="Upuść pliki lub katalogi albo wybierz z dysku"
         className={clsx(
           'drop-zone glass-strong rounded-3xl p-8 sm:p-14 cursor-pointer transition-all duration-300',
           isDragging && 'active',
@@ -379,13 +379,13 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
 
           <div>
             <p className="text-base sm:text-lg font-medium text-white/90 mb-2">
-              {isProcessing ? 'Reading files…' : 'Drop files or folders here'}
+              {isProcessing ? 'Wczytywanie plików…' : 'Upuść pliki lub katalogi'}
             </p>
             <p className="text-sm text-white/40">
-              or <span className="text-accent-light font-medium">browse</span> from your device
+              albo <span className="text-accent font-medium">wybierz</span> z dysku
             </p>
             <p className="text-xs text-white/20 mt-3">
-              Up to 5GB · folder structure preserved · Ctrl+V to paste
+              Do 5 GB · struktura katalogów zachowana · Ctrl+V wkleja
             </p>
           </div>
         </div>
@@ -405,9 +405,9 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
           <div className="glass-strong rounded-2xl p-4 sm:p-5">
             <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
               <span className="text-xs text-white/40 uppercase tracking-wider font-medium">
-                {selected.length} {selected.length === 1 ? 'file' : 'files'}
+                {selected.length} {plural(selected.length, 'plik', 'pliki', 'plików')}
                 {rootFolders.size > 0 &&
-                  ` · ${rootFolders.size} ${rootFolders.size === 1 ? 'folder' : 'folders'}`}
+                  ` · ${rootFolders.size} ${plural(rootFolders.size, 'katalog', 'katalogi', 'katalogów')}`}
               </span>
 
               <div className="flex items-center gap-1 flex-wrap">
@@ -416,21 +416,21 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
                   className="flex items-center gap-1.5 text-xs text-accent-light hover:text-accent transition-colors px-2.5 py-1.5 rounded-lg hover:bg-white/5"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Files
+                  Pliki
                 </button>
                 <button
                   onClick={() => directoryInputRef.current?.click()}
                   className="flex items-center gap-1.5 text-xs text-accent-light hover:text-accent transition-colors px-2.5 py-1.5 rounded-lg hover:bg-white/5"
                 >
                   <Folder className="w-3.5 h-3.5" />
-                  Folder
+                  Katalog
                 </button>
                 <button
                   onClick={clearAll}
                   className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-500/10"
                 >
                   <X className="w-3.5 h-3.5" />
-                  Clear
+                  Wyczyść
                 </button>
               </div>
             </div>
@@ -453,7 +453,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
                   <button
                     onClick={() => removeAt(index)}
                     className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 hover:bg-white/10 rounded-lg transition-all"
-                    aria-label={`Remove ${item.path}`}
+                    aria-label={`Usuń ${item.path}`}
                   >
                     <X className="w-3.5 h-3.5 text-white/40" />
                   </button>
@@ -463,7 +463,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
 
             <div className="mt-5 pt-4 border-t border-white/10 flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <span className="text-xs text-white/30">Total </span>
+                <span className="text-xs text-white/30">Razem </span>
                 <span className="text-sm font-semibold text-white/80">
                   {formatBytes(totalSize)}
                 </span>
@@ -474,7 +474,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
                 disabled={disabled || isProcessing}
                 className="btn-primary px-8 py-3 rounded-xl font-medium text-sm shadow-lg shadow-accent/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Transfer
+                Wyślij
               </button>
             </div>
           </div>

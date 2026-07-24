@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { api, triggerDownload } from '@/lib/api';
-import { formatBytes } from '@/lib/format';
+import { formatBytes, plural } from '@/lib/format';
 import {
   breadcrumbsFor,
   buildTree,
@@ -38,9 +38,9 @@ interface FileBrowserProps {
 }
 
 const SORTS: { id: SortMode; label: string }[] = [
-  { id: 'name', label: 'Name' },
-  { id: 'size', label: 'Size' },
-  { id: 'type', label: 'Type' },
+  { id: 'name', label: 'Nazwa' },
+  { id: 'size', label: 'Rozmiar' },
+  { id: 'type', label: 'Typ' },
 ];
 
 export default function FileBrowser({ transferId, entries, onHoverMedia }: FileBrowserProps) {
@@ -117,15 +117,15 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search files…"
-            aria-label="Search files"
+            placeholder="Szukaj plików…"
+            aria-label="Szukaj plików"
             className="input-glass w-full rounded-xl pl-9 pr-8 py-2 text-sm placeholder:text-white/25"
           />
           {searching && (
             <button
               onClick={() => setQuery('')}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-white/30 hover:text-white/70 hover:bg-white/10 transition-colors"
-              aria-label="Clear search"
+              aria-label="Wyczyść wyszukiwanie"
             >
               <X className="w-3 h-3" />
             </button>
@@ -152,7 +152,7 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
         <button
           onClick={() => setView(view === 'list' ? 'grid' : 'list')}
           className="p-2 rounded-xl bg-white/[0.03] text-white/40 hover:text-white/80 hover:bg-white/[0.06] transition-colors shrink-0"
-          aria-label={view === 'list' ? 'Switch to grid view' : 'Switch to list view'}
+          aria-label={view === 'list' ? 'Przełącz na siatkę' : 'Przełącz na listę'}
         >
           {view === 'list' ? <Grid2X2 className="w-4 h-4" /> : <List className="w-4 h-4" />}
         </button>
@@ -169,7 +169,7 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
             )}
           >
             <Home className="w-3 h-3" />
-            All files
+            Wszystkie pliki
           </button>
 
           {crumbs.map((crumb, index) => (
@@ -193,10 +193,10 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
             <button
               onClick={() => setPath(crumbs.length > 1 ? crumbs[crumbs.length - 2].path : '')}
               className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-colors shrink-0"
-              aria-label="Go to parent folder"
+              aria-label="Katalog wyżej"
             >
               <ArrowUpToLine className="w-3 h-3" />
-              Up
+              Wyżej
             </button>
           )}
         </div>
@@ -209,7 +209,7 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
       >
         {searching ? (
           results.length === 0 ? (
-            <EmptyState message={`Nothing matches “${query.trim()}”`} />
+            <EmptyState message={`Brak wyników dla „${query.trim()}”`} />
           ) : (
             <div className="space-y-1">
               {results.map((entry) => (
@@ -225,7 +225,7 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
             </div>
           )
         ) : isEmpty ? (
-          <EmptyState message="This folder is empty" />
+          <EmptyState message="Ten katalog jest pusty" />
         ) : view === 'grid' ? (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
             {visible.map((node) => (
@@ -271,7 +271,7 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
           className="mt-3 w-full py-2.5 rounded-xl text-xs font-medium text-white/60 hover:text-white bg-white/[0.03] hover:bg-white/[0.07] transition-colors flex items-center justify-center gap-2"
         >
           <FolderArchive className="w-3.5 h-3.5" />
-          Download “{current.name}” as ZIP ({formatBytes(current.size)})
+          Pobierz „{current.name}” jako ZIP ({formatBytes(current.size)})
         </button>
       )}
 
@@ -318,7 +318,7 @@ function FolderRow({
           {node.name}
         </p>
         <p className="text-xs text-white/30">
-          {node.fileCount} {node.fileCount === 1 ? 'file' : 'files'} · {formatBytes(node.size)}
+          {node.fileCount} {plural(node.fileCount, 'plik', 'pliki', 'plików')} · {formatBytes(node.size)}
         </p>
       </div>
 
@@ -328,7 +328,7 @@ function FolderRow({
           triggerDownload(api.downloadFolder(transferId, node.path));
         }}
         className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-white/25 group-hover:text-accent-light hover:bg-accent/10 transition-all"
-        aria-label={`Download folder ${node.name}`}
+        aria-label={`Pobierz katalog ${node.name}`}
       >
         <FolderArchive className="w-4 h-4" />
       </button>
@@ -394,10 +394,10 @@ function FileRow({
           {entry.isDangerous && (
             <span
               className="inline-flex items-center gap-1 text-amber-400/70"
-              title="Executable file — it will be delivered inside a ZIP"
+              title="Plik wykonywalny — zostanie dostarczony w archiwum ZIP"
             >
               <ShieldAlert className="w-3 h-3" />
-              zipped
+              w ZIP-ie
             </span>
           )}
         </p>
@@ -410,7 +410,7 @@ function FileRow({
             onPreview();
           }}
           className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-white/25 group-hover:text-white/70 hover:bg-white/10 transition-all"
-          aria-label={`Preview ${entry.name}`}
+          aria-label={`Podgląd ${entry.name}`}
         >
           <Eye className="w-4 h-4" />
         </button>
@@ -422,7 +422,7 @@ function FileRow({
           triggerDownload(api.downloadFile(transferId, entry.id));
         }}
         className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-white/25 group-hover:text-accent-light hover:bg-accent/10 transition-all"
-        aria-label={`Download ${entry.name}`}
+        aria-label={`Pobierz ${entry.name}`}
       >
         <Download className="w-4 h-4" />
       </button>
@@ -475,7 +475,7 @@ function GridCell({
         </p>
         <p className="text-[10px] text-white/25">
           {node.isDir
-            ? `${node.fileCount} ${node.fileCount === 1 ? 'file' : 'files'}`
+            ? `${node.fileCount} ${plural(node.fileCount, 'plik', 'pliki', 'plików')}`
             : formatBytes(node.size)}
         </p>
       </div>
@@ -487,7 +487,7 @@ function GridCell({
             triggerDownload(api.downloadFile(transferId, entry.id));
           }}
           className="absolute top-1.5 right-1.5 w-7 h-7 rounded-lg bg-black/50 backdrop-blur-sm opacity-0 group-hover:opacity-100 flex items-center justify-center text-white/70 hover:text-accent-light transition-all"
-          aria-label={`Download ${node.name}`}
+          aria-label={`Pobierz ${node.name}`}
         >
           <Download className="w-3.5 h-3.5" />
         </button>
