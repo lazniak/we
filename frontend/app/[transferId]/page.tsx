@@ -16,6 +16,7 @@ import { formatBytes, formatEta, formatRemaining, plural } from '@/lib/format';
 import { TransferWebSocket } from '@/lib/websocket';
 import FileBrowser from '@/components/FileBrowser';
 import HexartPromo from '@/components/HexartPromo';
+import BusinessCard from '@/components/BusinessCard';
 import Logo from '@/components/Logo';
 import SiteFooter from '@/components/SiteFooter';
 import type { ProgressUpdate, TransferInfo } from '@/lib/types';
@@ -165,7 +166,7 @@ export default function TransferPage() {
           <Logo size="md" />
         </a>
 
-        <div className={hasBrowser ? 'w-full max-w-2xl' : 'w-full max-w-md'}>
+        <div className={hasBrowser ? 'w-full max-w-4xl' : 'w-full max-w-md'}>
           {status === 'loading' && (
             <div className="text-center animate-fade-in">
               <Loader2 className="w-8 h-8 text-accent/40 animate-spin mx-auto mb-4" />
@@ -344,8 +345,14 @@ export default function TransferPage() {
           )}
         </div>
 
-        {/* Odbiorca to zwykle ktoś, kto jeszcze nie zna studia. */}
-        {(status === 'ready' || status === 'expired' || status === 'not_found') && <HexartPromo />}
+        {/* Odbiorca to zwykle ktoś, kto jeszcze nie zna studia — reklama i
+            wizytówka lądują pod podglądem/przeglądarką plików. */}
+        {(status === 'ready' || status === 'expired' || status === 'not_found') && (
+          <>
+            <HexartPromo />
+            <BusinessCard />
+          </>
+        )}
       </div>
 
       <SiteFooter />

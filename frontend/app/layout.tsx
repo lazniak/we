@@ -27,7 +27,14 @@ export const metadata: Metadata = {
     locale: 'pl_PL',
     siteName: 'hexart.io',
   },
-  robots: { index: true, follow: true },
+  // Kept out of search indexes on purpose - the site travels only through the
+  // links people share, not through crawlers.
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: { index: false, follow: false, noimageindex: true },
+  },
 };
 
 export const viewport: Viewport = {

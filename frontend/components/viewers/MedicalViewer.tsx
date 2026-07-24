@@ -59,7 +59,7 @@ export default function MedicalViewer({ url, name }: { url: string; name: string
   }, [url, name]);
 
   return (
-    <div className="relative w-[min(92vw,64rem)] h-[75vh] rounded-lg overflow-hidden bg-[#0b0b0e]">
+    <div className="relative w-[min(96vw,88rem)] h-[86vh] rounded-lg overflow-hidden bg-[#0b0b0e]">
       <canvas ref={canvasRef} className="w-full h-full block" />
       {loading && !error && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none">

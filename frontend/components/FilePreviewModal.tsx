@@ -10,7 +10,7 @@ import type { TransferEntry } from '@/lib/types';
 
 /* Heavy viewers load their code (and vendor scripts) only when first opened. */
 const spinner = () => (
-  <div className="w-[min(92vw,64rem)] h-[75vh] flex items-center justify-center">
+  <div className="w-[min(96vw,88rem)] h-[86vh] flex items-center justify-center">
     <Loader2 className="w-6 h-6 text-accent/60 animate-spin" />
   </div>
 );
@@ -93,14 +93,14 @@ function RenderedPreview({ transferId, entry }: { transferId: string; entry: Tra
 
   if (error) {
     return (
-      <div className="w-[min(92vw,60rem)] h-[60vh] flex items-center justify-center text-center px-6 text-sm text-white/40">
+      <div className="w-[min(96vw,72rem)] h-[70vh] flex items-center justify-center text-center px-6 text-sm text-white/40">
         Nie udało się wygenerować podglądu tego pliku. Pobierz go, aby otworzyć w oryginalnej aplikacji.
       </div>
     );
   }
   if (!state) {
     return (
-      <div className="w-[min(92vw,60rem)] h-[60vh] flex flex-col items-center justify-center gap-2">
+      <div className="w-[min(96vw,72rem)] h-[70vh] flex flex-col items-center justify-center gap-2">
         <Loader2 className="w-6 h-6 text-accent/60 animate-spin" />
         <span className="text-xs text-white/40">Generowanie podglądu…</span>
       </div>
@@ -109,16 +109,16 @@ function RenderedPreview({ transferId, entry }: { transferId: string; entry: Tra
 
   if (state.type === 'application/pdf') {
     return (
-      <iframe src={state.url} title={entry.name} className="w-[min(92vw,60rem)] h-[80vh] rounded-lg bg-white" />
+      <iframe src={state.url} title={entry.name} className="w-[min(96vw,88rem)] h-[88vh] rounded-lg bg-white" />
     );
   }
   if (state.type.startsWith('video/')) {
     return (
-      <video src={state.url} className="max-w-full max-h-[80vh] rounded-lg shadow-2xl" controls autoPlay playsInline />
+      <video src={state.url} className="max-w-full max-h-[88vh] rounded-lg shadow-2xl" controls autoPlay playsInline />
     );
   }
   /* eslint-disable-next-line @next/next/no-img-element */
-  return <img src={state.url} alt={entry.name} className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl" />;
+  return <img src={state.url} alt={entry.name} className="max-w-full max-h-[88vh] object-contain rounded-lg shadow-2xl" />;
 }
 
 export default function FilePreviewModal({
@@ -205,7 +205,7 @@ export default function FilePreviewModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-black/85 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-50 flex flex-col bg-black/92 backdrop-blur-2xl animate-fade-in"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -277,18 +277,18 @@ export default function FilePreviewModal({
 
           {!pano && (kind === 'image' || kind === 'svg') && (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={previewUrl} alt={entry.name} className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl" />
+            <img src={previewUrl} alt={entry.name} className="max-w-full max-h-[88vh] object-contain rounded-lg shadow-2xl" />
           )}
           {!pano && kind === 'video' && (
-            <video src={previewUrl} className="max-w-full max-h-[80vh] rounded-lg shadow-2xl" controls autoPlay playsInline />
+            <video src={previewUrl} className="max-w-full max-h-[88vh] rounded-lg shadow-2xl" controls autoPlay playsInline />
           )}
           {kind === 'audio' && (
-            <div className="glass rounded-2xl p-8 w-[min(90vw,28rem)]">
+            <div className="glass rounded-2xl p-8 w-[min(92vw,32rem)]">
               <audio src={previewUrl} className="w-full" controls autoPlay />
             </div>
           )}
           {kind === 'pdf' && (
-            <iframe src={previewUrl} title={entry.name} className="w-[min(92vw,60rem)] h-[80vh] rounded-lg bg-white" />
+            <iframe src={previewUrl} title={entry.name} className="w-[min(96vw,88rem)] h-[88vh] rounded-lg bg-white" />
           )}
 
           {!pano && (kind === 'image-render' || kind === 'video-render' || kind === 'document') && (
@@ -304,7 +304,7 @@ export default function FilePreviewModal({
           )}
 
           {kind === 'font' && (
-            <div className="glass rounded-2xl p-8 w-[min(92vw,48rem)] max-h-[78vh] overflow-auto space-y-6">
+            <div className="glass rounded-2xl p-8 w-[min(96vw,64rem)] max-h-[86vh] overflow-auto space-y-6">
               <div style={{ fontFamily }} className="text-white/90 space-y-4">
                 <p className="text-4xl sm:text-5xl leading-tight">Zażółć gęślą jaźń</p>
                 <p className="text-2xl text-white/70">ABCDEFGHIJKLMNOPQRSTUVWXYZ</p>
@@ -316,7 +316,7 @@ export default function FilePreviewModal({
           )}
 
           {kind === 'text' && (
-            <div className="glass rounded-2xl p-4 w-[min(92vw,60rem)] h-[78vh] overflow-auto custom-scrollbar">
+            <div className="glass rounded-2xl p-4 w-[min(96vw,84rem)] h-[86vh] overflow-auto custom-scrollbar">
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin text-accent/50 mx-auto mt-8" />
               ) : table ? (

@@ -206,7 +206,7 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
 
       {/* Listing */}
       <div
-        className="min-h-0 max-h-[22rem] overflow-y-auto overflow-x-hidden pr-1 -mr-1 custom-scrollbar"
+        className="min-h-0 max-h-[min(34rem,62vh)] overflow-y-auto overflow-x-hidden pr-1 -mr-1 custom-scrollbar"
         onMouseLeave={() => hover(null)}
       >
         {searching ? (
@@ -229,7 +229,7 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
         ) : isEmpty ? (
           <EmptyState message="Ten katalog jest pusty" />
         ) : view === 'grid' ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-2.5">
             {visible.map((node) => (
               <GridCell
                 key={node.path}

@@ -157,7 +157,7 @@ export default function PanoViewer({ url, type }: { url: string; type: 'image' |
   }, [url, type]);
 
   return (
-    <div className="relative w-[min(92vw,64rem)] h-[75vh] rounded-lg overflow-hidden bg-black">
+    <div className="relative w-[min(96vw,88rem)] h-[86vh] rounded-lg overflow-hidden bg-black">
       <div
         ref={containerRef}
         className="w-full h-full cursor-grab active:cursor-grabbing touch-none"

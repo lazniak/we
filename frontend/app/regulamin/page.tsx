@@ -6,7 +6,7 @@ import TermsContent from '@/components/TermsContent';
 
 export const metadata: Metadata = {
   title: 'Regulamin — hexart.io',
-  robots: { index: true, follow: true },
+  robots: { index: false, follow: false, nocache: true },
 };
 
 export default function TermsPage() {

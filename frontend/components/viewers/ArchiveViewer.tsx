@@ -155,7 +155,7 @@ export default function ArchiveViewer({
     : [];
 
   return (
-    <div className="w-[min(92vw,52rem)] h-[75vh] glass rounded-2xl flex flex-col overflow-hidden">
+    <div className="w-[min(96vw,60rem)] h-[86vh] glass rounded-2xl flex flex-col overflow-hidden">
       <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/10 shrink-0">
         <FileArchive className="w-4 h-4 text-accent/60" />
         <span className="text-sm text-white/80 truncate font-medium">{name}</span>

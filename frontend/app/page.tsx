@@ -7,6 +7,7 @@ import ShareLink from '@/components/ShareLink';
 import Stats from '@/components/Stats';
 import TransferHistory from '@/components/TransferHistory';
 import HexartPromo from '@/components/HexartPromo';
+import BusinessCard from '@/components/BusinessCard';
 import Logo from '@/components/Logo';
 import SiteFooter from '@/components/SiteFooter';
 import { finishTransfer, UploadAbortedError, uploadFiles } from '@/lib/uploader';
@@ -236,7 +237,12 @@ export default function HomePage() {
 
         {/* Promo studia towarzyszy też ekranowi „gotowe” — to moment,
             w którym ktoś właśnie skopiował link i ma chwilę uwagi. */}
-        {(showDropZone || state.phase === 'complete') && <HexartPromo />}
+        {(showDropZone || state.phase === 'complete') && (
+          <>
+            <HexartPromo />
+            <BusinessCard />
+          </>
+        )}
 
         {showDropZone && (
           <>
