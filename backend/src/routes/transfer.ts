@@ -10,8 +10,6 @@ import {
   MAX_FILE_BYTES,
   MAX_TRANSFER_BYTES,
   MIN_EXPIRATION_DAYS,
-  RATE_LIMIT_MAX_TRANSFERS,
-  RATE_LIMIT_WINDOW_MS,
 } from '../config';
 import {
   addTransferFile,
@@ -56,38 +54,11 @@ import {
   writeChunkAt,
 } from '../lib/storage';
 import { crc32, crc32Combine } from '../lib/zipStream';
+import { rateLimit } from '../lib/rateLimit';
 
 ensureUploadsDir();
 
 export const transferRoutes = new Hono();
-
-/* ------------------------------------------------------------ rate limit */
-
-const rateBuckets = new Map<string, { count: number; resetAt: number }>();
-
-function clientIp(c: { req: { header: (name: string) => string | undefined } }): string {
-  const forwarded = c.req.header('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0].trim();
-  return c.req.header('x-real-ip') || 'unknown';
-}
-
-function rateLimited(ip: string): boolean {
-  const now = Date.now();
-  const bucket = rateBuckets.get(ip);
-
-  if (!bucket || bucket.resetAt <= now) {
-    rateBuckets.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    if (rateBuckets.size > 10_000) {
-      for (const [key, value] of rateBuckets) {
-        if (value.resetAt <= now) rateBuckets.delete(key);
-      }
-    }
-    return false;
-  }
-
-  bucket.count += 1;
-  return bucket.count > RATE_LIMIT_MAX_TRANSFERS;
-}
 
 /* --------------------------------------------------------------- helpers */
 
@@ -193,12 +164,8 @@ interface IncomingFile {
   type?: string;
 }
 
-transferRoutes.post('/init', async (c) => {
+transferRoutes.post('/init', rateLimit('init'), async (c) => {
   try {
-    if (rateLimited(clientIp(c))) {
-      return c.json({ error: 'Too many transfers, try again later' }, 429);
-    }
-
     const body = await c.req.json().catch(() => null);
     if (!body || typeof body !== 'object') {
       return c.json({ error: 'Invalid request body' }, 400);
@@ -330,7 +297,7 @@ transferRoutes.post('/init', async (c) => {
 
 /* ----------------------------------------------------------- chunk upload */
 
-transferRoutes.put('/:id/file/:index/chunk/:chunkIndex', async (c) => {
+transferRoutes.put('/:id/file/:index/chunk/:chunkIndex', rateLimit('upload'), async (c) => {
   try {
     const { id, index, chunkIndex } = c.req.param();
 
@@ -407,7 +374,7 @@ transferRoutes.put('/:id/file/:index/chunk/:chunkIndex', async (c) => {
 
 /* -------------------------------------------------------------- complete */
 
-transferRoutes.post('/:id/complete', async (c) => {
+transferRoutes.post('/:id/complete', rateLimit('mutate'), async (c) => {
   try {
     const { id } = c.req.param();
     const transfer = loadTransfer(id);
@@ -507,7 +474,7 @@ transferRoutes.post('/:id/complete', async (c) => {
 
 /* ------------------------------------------------------------------ info */
 
-transferRoutes.get('/:id', (c) => {
+transferRoutes.get('/:id', rateLimit('read'), (c) => {
   const { id } = c.req.param();
   c.header('Cache-Control', 'private, no-store, max-age=0');
 
@@ -569,7 +536,7 @@ transferRoutes.get('/:id', (c) => {
 
 /* ---------------------------------------------------------------- delete */
 
-transferRoutes.delete('/:id', (c) => {
+transferRoutes.delete('/:id', rateLimit('mutate'), (c) => {
   try {
     const { id } = c.req.param();
     const transfer = loadTransfer(id);

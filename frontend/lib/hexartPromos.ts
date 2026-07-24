@@ -12,38 +12,39 @@ export interface Promo {
 }
 
 /**
- * Rotating studio promos. Each card opens with a plain question about a problem
- * the visitor might have, answers it in one short line, and links straight to
- * the matching section on hexart.pl (services, solution landing pages or case
- * studies from the sitemap). Simple language on purpose - the card has to sell
- * at a glance, so the question does the work and the answer stays short.
+ * Rotating studio promos. Each card names a problem the visitor actually has -
+ * bluntly, in the headline - answers it in one short line, and links straight
+ * to the matching section on hexart.pl (services, solution landing pages or
+ * case studies from the sitemap). Simple, direct language: the question does
+ * the selling, the answer stays short.
  *
- * The artwork key stays paired with the topic, so the banner illustrates the
- * exact need the copy talks about.
+ * A few cards speak to a specific persona (streamer, journalist, museum); their
+ * artwork slots (facemapping / live / history) are reused to illustrate that
+ * need, so the banner still matches the copy.
  */
 export const HEXART_PROMOS: Promo[] = [
   {
     kicker: 'Automatyzacja',
-    title: 'Za dużo klikania w kółko to samo?',
-    body: 'Oferty, faktury, zapytania — system AI zrobi to za Ciebie. Wdrożenie w tydzień.',
+    title: 'Ręcznie robisz oferty, faktury i raporty?',
+    body: 'AI przejmie tę powtarzalną robotę. Wdrożenie w tydzień, nie w rok.',
     cta: 'Zobacz, co zautomatyzować',
     href: 'https://hexart.pl/lp/automatyzacja-sprzedazy',
     art: 'automation',
   },
   {
     kicker: 'Voice AI',
-    title: 'Nie wyrabiasz z telefonami?',
-    body: 'Głosowy asystent odbierze i umówi spotkanie. O każdej porze, bez kolejki.',
+    title: 'Nie odbierasz — klient dzwoni do konkurencji?',
+    body: 'Głosowy agent odbiera każdy telefon, umawia spotkania i notuje w CRM.',
     cta: 'Posłuchaj, jak gada',
     href: 'https://hexart.pl/lp/kalendarz-voicebot',
     art: 'voice',
   },
   {
     kicker: 'Wiedza firmowa',
-    title: 'Wiecznie szukasz tej jednej informacji?',
-    body: 'Damy Ci wyszukiwarkę po wszystkich dokumentach firmy. Odpowiada w sekundę.',
+    title: 'Pół dnia schodzi na szukanie dokumentów?',
+    body: 'AI zna wszystkie pliki firmy i odpowiada od ręki. Z podaniem źródła.',
     cta: 'Zobacz, jak to działa',
-    href: 'https://hexart.pl/lp/prywatna-baza-wiedzy-rag',
+    href: 'https://hexart.pl/lp/wiedza-pracownika',
     art: 'rag',
   },
   {
@@ -79,27 +80,27 @@ export const HEXART_PROMOS: Promo[] = [
     art: 'xr',
   },
   {
-    kicker: 'Live · FaceMapping',
-    title: 'Robisz produkcję na żywo?',
-    body: 'Nałożymy grafikę 3D na twarz w czasie rzeczywistym. Bez opóźnień, na antenie.',
+    kicker: 'Streaming',
+    title: 'Jesteś streamerem?',
+    body: 'Damy Ci grafikę 3D i efekty na twarzy na żywo. Zero opóźnień.',
     cta: 'Zobacz technologię',
     href: 'https://hexart.pl/case-studies/facemapping',
     art: 'facemapping',
   },
   {
-    kicker: 'live.hexart.io',
-    title: 'Transmitujesz wydarzenia na żywo?',
-    body: 'Streaming i grafika w czasie rzeczywistym z jednego panelu. Nasza platforma live.',
-    cta: 'Zajrzyj na live.hexart.io',
-    href: 'https://live.hexart.io',
+    kicker: 'Dziennikarstwo',
+    title: 'Jesteś dziennikarzem?',
+    body: 'AI przekopie setki stron źródeł i poda fakty z cytatami. W minuty, nie dni.',
+    cta: 'Zobacz, jak to działa',
+    href: 'https://hexart.pl/lp/prywatna-baza-wiedzy-rag',
     art: 'live',
   },
   {
-    kicker: 'omnihistory.space',
-    title: 'Masz górę danych i zero czasu?',
-    body: 'AI ogarnie duże zbiory — zrobiliśmy z nich interaktywną oś dziejów świata.',
-    cta: 'Odwiedź omnihistory.space',
-    href: 'https://omnihistory.space',
+    kicker: 'Kultura / Muzea',
+    title: 'Tworzysz muzeum i szukasz innowacji?',
+    body: 'Zbudujemy interaktywną instalację i immersyjną oś czasu. Zwiedzający jej dotknie.',
+    cta: 'Zobacz instalacje',
+    href: 'https://hexart.pl/uslugi/xr',
     art: 'history',
   },
   {
@@ -135,10 +136,10 @@ export const HEXART_PROMOS: Promo[] = [
     art: 'heritage',
   },
   {
-    kicker: 'Zacznij tu',
-    title: 'Nie wiesz, od czego zacząć?',
-    body: 'Wpisz swój problem, a pokażemy gotowe rozwiązanie AI.',
-    cta: 'Przeglądaj rozwiązania',
+    kicker: 'Bez ściemy',
+    title: 'AI? Ale po co to komu?',
+    body: 'Żeby ludzie robili to, co ważne — a nudną, powtarzalną robotę wziął komputer.',
+    cta: 'Zobacz przykłady',
     href: 'https://hexart.pl/uslugi/ai',
     art: 'contact',
   },

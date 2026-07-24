@@ -38,6 +38,7 @@ import {
 } from '../lib/safePath';
 import { fileSizeOrNull, legacyArchivePath, storagePath } from '../lib/storage';
 import { createZipStream, planZip, type ZipEntry } from '../lib/zipStream';
+import { enforceRawRateLimit } from '../lib/rateLimit';
 
 const BASE_HEADERS: Record<string, string> = {
   'Cache-Control': 'private, no-store, max-age=0',
@@ -403,6 +404,11 @@ export async function handleDownloadRequest(
   const assetMatch = /^\/api\/transfer\/([^/]+)\/asset\/(\d+)\/.+$/.exec(url.pathname);
   if (assetMatch) {
     const origin = req.headers.get('origin');
+    const throttled = enforceRawRateLimit('download', req.headers, (extra) =>
+      withCommonHeaders(extra, origin),
+    );
+    if (throttled) return throttled;
+
     const transfer = getTransfer(assetMatch[1]);
     if (!isValidTransferId(assetMatch[1]) || !transfer) {
       return jsonError('Transfer not found', 404, origin);
@@ -418,6 +424,15 @@ export async function handleDownloadRequest(
   const [, rawId, kind, param] = match;
   const origin = req.headers.get('origin');
   const headOnly = req.method === 'HEAD';
+
+  // Rendering and archive listings are CPU/memory heavy, so they get the tight
+  // 'render' budget; plain file, preview and zip streaming share 'download'.
+  const throttled = enforceRawRateLimit(
+    kind === 'render' || kind === 'archive' ? 'render' : 'download',
+    req.headers,
+    (extra) => withCommonHeaders(extra, origin),
+  );
+  if (throttled) return throttled;
 
   if (!isValidTransferId(rawId)) return jsonError('Transfer not found', 404, origin);
 

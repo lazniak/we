@@ -54,6 +54,50 @@ export const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 export const RATE_LIMIT_MAX_TRANSFERS = 60;
 
 /**
+ * Per-IP rate limits, one bucket per category, sized to the shape of each
+ * endpoint rather than one blanket number. Every limit is a fixed window
+ * (max requests per windowMs) and can be tuned from the environment with
+ * RL_<CATEGORY>_MAX / RL_<CATEGORY>_WINDOW_MS.
+ *
+ * The defaults are deliberately generous - they exist to stop a flood from
+ * exhausting the box, not to get in the way of a real upload or a folder full
+ * of previews. The busy paths (uploading chunks, streaming ranges) sit far
+ * above anything a legitimate client produces; the expensive paths (creating a
+ * transfer, server-side rendering) are held much tighter.
+ */
+export type RateCategory = 'init' | 'upload' | 'mutate' | 'read' | 'download' | 'render';
+
+function rateRule(key: string, defMax: number, defWindowMs: number): { max: number; windowMs: number } {
+  const max = Number(process.env[`RL_${key}_MAX`]);
+  const windowMs = Number(process.env[`RL_${key}_WINDOW_MS`]);
+  return {
+    max: Number.isFinite(max) && max > 0 ? Math.floor(max) : defMax,
+    windowMs: Number.isFinite(windowMs) && windowMs > 0 ? Math.floor(windowMs) : defWindowMs,
+  };
+}
+
+export const RATE_LIMITS: Record<RateCategory, { max: number; windowMs: number }> = {
+  // Creating a transfer allocates a directory and a DB row - kept to the
+  // existing hourly cap so nobody can spin up thousands of empty transfers.
+  init: { max: RATE_LIMIT_MAX_TRANSFERS, windowMs: RATE_LIMIT_WINDOW_MS },
+  // Chunk PUTs are the busy path by design: 4 parallel streams of 5MB chunks,
+  // up to ~1000 chunks for a 5GB upload. The cap trips only on a flood well
+  // past any real link speed, and the client backs off politely on a 429.
+  upload: rateRule('UPLOAD', 1200, 60_000),
+  // complete / delete: a handful per transfer, retried a few times.
+  mutate: rateRule('MUTATE', 120, 60_000),
+  // Status polls and the stats widget - cheap reads, but a page may ask about
+  // several transfers, so the window stays roomy.
+  read: rateRule('READ', 240, 60_000),
+  // Streaming files, previews and zips. Range requests fan a single video into
+  // many GETs and a folder download touches every file, so this is high.
+  download: rateRule('DOWNLOAD', 600, 60_000),
+  // Server-side rendering (LibreOffice / ffmpeg / ImageMagick) and cracking an
+  // archive open to list it are CPU and memory heavy - capped the hardest.
+  render: rateRule('RENDER', 60, 60_000),
+};
+
+/**
  * Interface the backend listens on. It stays behind nginx, so the default
  * keeps port 3001 off the public interface entirely. Set BIND_HOST=0.0.0.0
  * only when something other than a local reverse proxy has to reach it.

@@ -50,14 +50,16 @@ export default function HexartPromo() {
   if (!promo) return null;
 
   return (
-    <aside className="w-full max-w-xl mx-auto mt-8 px-4 animate-fade-in">
+    <aside className="w-full max-w-2xl mx-auto mt-8 px-4 animate-fade-in">
       <div className="relative overflow-hidden rounded-2xl glass-accent">
         <div
           className={`transition-opacity duration-200 ${fading ? 'opacity-0' : 'opacity-100'}`}
         >
           {/* Banner artwork */}
-          <div className="relative h-28 sm:h-32 w-full overflow-hidden border-b border-accent/10">
+          <div className="relative h-44 sm:h-56 w-full overflow-hidden border-b border-accent/10">
             <PromoArt art={promo.art} />
+            {/* Scrim so the kicker and button stay legible over a bright frame */}
+            <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/55 to-transparent pointer-events-none" />
             {/* Kicker floats over the art */}
             <div className="absolute top-3 left-4 flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-glow" />
@@ -74,15 +76,15 @@ export default function HexartPromo() {
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
             {/* Fade so text below sits on solid ground */}
-            <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#14140f] to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#14140f] to-transparent" />
           </div>
 
           {/* Copy */}
-          <div className="p-5 sm:p-6 pt-4">
-            <h3 className="font-display text-lg sm:text-xl text-white leading-snug mb-2">
+          <div className="p-6 sm:p-7 pt-5">
+            <h3 className="font-display text-xl sm:text-2xl text-white leading-snug mb-2">
               {promo.title}
             </h3>
-            <p className="text-sm text-white/45 leading-relaxed mb-4">{promo.body}</p>
+            <p className="text-sm sm:text-base text-white/45 leading-relaxed mb-4">{promo.body}</p>
             <a
               href={promo.href}
               target="_blank"

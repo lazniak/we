@@ -9,6 +9,7 @@ import { setupWebSocket, clients } from './websocket';
 import { startCleanupJob } from './cleanup';
 import { isValidTransferId } from './lib/safePath';
 import { handleDownloadRequest } from './routes/download';
+import { consume, clientIpFromHeaders } from './lib/rateLimit';
 
 const app = new Hono();
 
@@ -60,6 +61,15 @@ const server = Bun.serve({
       const transferId = url.pathname.slice('/ws/'.length);
       if (!isValidTransferId(transferId)) {
         return new Response('Invalid transfer id', { status: 400 });
+      }
+      // Cap upgrade attempts per IP so nobody can churn sockets to exhaust the
+      // process; a real client opens one per transfer it is watching.
+      const gate = consume('read', clientIpFromHeaders(req.headers));
+      if (!gate.ok) {
+        return new Response('Too many requests', {
+          status: 429,
+          headers: { 'Retry-After': String(gate.retryAfterSec) },
+        });
       }
       if (server.upgrade(req, { data: { transferId } })) return undefined;
       return new Response('WebSocket upgrade failed', { status: 400 });

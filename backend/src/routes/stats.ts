@@ -1,9 +1,10 @@
 import { Hono } from 'hono';
 import { getActiveTransfersCount, getStats, getStoredTotals } from '../db';
+import { rateLimit } from '../lib/rateLimit';
 
 export const statsRoutes = new Hono();
 
-statsRoutes.get('/', (c) => {
+statsRoutes.get('/', rateLimit('read'), (c) => {
   const stats = getStats();
   const stored = getStoredTotals();
 
