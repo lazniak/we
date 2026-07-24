@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, File, Folder, Plus, Upload, X } from 'lucide-react';
 import clsx from 'clsx';
 import { formatBytes, plural } from '@/lib/format';
+import { TERMS_ACCEPT_KEY, TERMS_VERSION } from '@/lib/terms';
+import TermsModal from './TermsModal';
 
 export interface FilesMetadata {
   files: File[];
@@ -78,6 +80,8 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expirationDays, setExpirationDays] = useState(3);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const directoryInputRef = useRef<HTMLInputElement>(null);
@@ -89,6 +93,13 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
     const saved = window.localStorage.getItem('we-expiration-days');
     const parsed = saved ? parseInt(saved, 10) : NaN;
     if (Number.isFinite(parsed) && parsed >= 3 && parsed <= 7) setExpirationDays(parsed);
+
+    // Acceptance is remembered only for the exact terms version in force.
+    try {
+      setTermsAccepted(window.localStorage.getItem(TERMS_ACCEPT_KEY) === TERMS_VERSION);
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const handleExpirationChange = (days: number) => {
@@ -280,12 +291,25 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
   );
 
   const start = () => {
-    if (selected.length === 0 || disabled || isProcessing) return;
+    if (selected.length === 0 || disabled || isProcessing || !termsAccepted) return;
     onFilesSelected({
       files: selected.map((item) => item.file),
       paths: selected.map((item) => item.path),
       dirs: folders,
       expirationDays,
+    });
+  };
+
+  const toggleTerms = () => {
+    setTermsAccepted((previous) => {
+      const next = !previous;
+      try {
+        if (next) window.localStorage.setItem(TERMS_ACCEPT_KEY, TERMS_VERSION);
+        else window.localStorage.removeItem(TERMS_ACCEPT_KEY);
+      } catch {
+        /* private mode - acceptance just will not persist */
+      }
+      return next;
     });
   };
 
@@ -316,6 +340,31 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
         </div>
       </div>
 
+      {/*
+        The hidden inputs live OUTSIDE the drop target on purpose. When they
+        sat inside it, a programmatic .click() on the folder input bubbled up
+        to the drop target's own onClick, which re-opened the file picker -
+        so "Katalog" silently fell back to selecting files. As siblings, their
+        clicks have no dropzone ancestor to bubble into.
+      */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        onChange={handleFileInput}
+        className="hidden"
+        disabled={disabled || isProcessing}
+      />
+      <input
+        ref={directoryInputRef}
+        type="file"
+        {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
+        multiple
+        onChange={handleDirectoryInput}
+        className="hidden"
+        disabled={disabled || isProcessing}
+      />
+
       {/* Drop target */}
       <div
         onDragEnter={(event) => {
@@ -336,32 +385,14 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
         }}
         role="button"
         tabIndex={0}
-        aria-label="Upuść pliki lub katalogi albo wybierz z dysku"
+        aria-label="Upuść pliki albo wybierz z dysku"
         className={clsx(
-          'drop-zone glass-strong rounded-3xl p-8 sm:p-14 cursor-pointer transition-all duration-300',
+          'drop-zone glass-strong rounded-3xl p-8 sm:p-12 cursor-pointer transition-all duration-300',
           isDragging && 'active',
           disabled && 'opacity-50 cursor-not-allowed',
           isProcessing && 'opacity-75 cursor-wait',
         )}
       >
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          onChange={handleFileInput}
-          className="hidden"
-          disabled={disabled || isProcessing}
-        />
-        <input
-          ref={directoryInputRef}
-          type="file"
-          {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
-          multiple
-          onChange={handleDirectoryInput}
-          className="hidden"
-          disabled={disabled || isProcessing}
-        />
-
         <div className="flex flex-col items-center gap-5 text-center">
           <div
             className={clsx(
@@ -382,9 +413,38 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
               {isProcessing ? 'Wczytywanie plików…' : 'Upuść pliki lub katalogi'}
             </p>
             <p className="text-sm text-white/40">
-              albo <span className="text-accent font-medium">wybierz</span> z dysku
+              albo wybierz z dysku
             </p>
-            <p className="text-xs text-white/20 mt-3">
+
+            {/* Explicit Files / Folder buttons, so a folder can be chosen even
+                before anything is added. stopPropagation keeps the button click
+                from also firing the drop target's file-picker onClick. */}
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (!disabled && !isProcessing) fileInputRef.current?.click();
+                }}
+                className="btn-outline px-4 py-2 text-xs font-medium flex items-center gap-1.5"
+              >
+                <File className="w-3.5 h-3.5" />
+                Pliki
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (!disabled && !isProcessing) directoryInputRef.current?.click();
+                }}
+                className="btn-outline px-4 py-2 text-xs font-medium flex items-center gap-1.5"
+              >
+                <Folder className="w-3.5 h-3.5" />
+                Katalog
+              </button>
+            </div>
+
+            <p className="text-xs text-white/20 mt-4">
               Do 5 GB · struktura katalogów zachowana · Ctrl+V wkleja
             </p>
           </div>
@@ -471,15 +531,42 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
 
               <button
                 onClick={start}
-                disabled={disabled || isProcessing}
+                disabled={disabled || isProcessing || !termsAccepted}
+                title={!termsAccepted ? 'Zaakceptuj regulamin, aby wysłać' : undefined}
                 className="btn-primary px-8 py-3 rounded-xl font-medium text-sm shadow-lg shadow-accent/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Wyślij
               </button>
             </div>
+
+            {/* Terms acceptance — kept small and understated, but required to send. */}
+            <label className="mt-3 flex items-start gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={toggleTerms}
+                className="mt-0.5 w-3.5 h-3.5 shrink-0 accent-accent cursor-pointer"
+              />
+              <span className="text-[11px] leading-relaxed text-white/30">
+                Akceptuję{' '}
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setShowTerms(true);
+                  }}
+                  className="text-white/45 underline underline-offset-2 hover:text-accent transition-colors"
+                >
+                  regulamin
+                </button>{' '}
+                i przyjmuję, że serwis jest darmowy, udostępniany bez gwarancji i „tak jak jest”.
+              </span>
+            </label>
           </div>
         </div>
       )}
+
+      {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
     </div>
   );
 }

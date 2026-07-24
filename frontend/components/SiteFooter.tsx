@@ -3,10 +3,11 @@
 import { ArrowUpRight } from 'lucide-react';
 
 const LINKS = [
-  { label: 'hexart.pl', href: 'https://hexart.pl' },
-  { label: 'live.hexart.io', href: 'https://live.hexart.io' },
-  { label: 'omnihistory.space', href: 'https://omnihistory.space' },
-  { label: 'Kontakt', href: 'https://hexart.pl/#contact' },
+  { label: 'hexart.pl', href: 'https://hexart.pl', external: true },
+  { label: 'live.hexart.io', href: 'https://live.hexart.io', external: true },
+  { label: 'omnihistory.space', href: 'https://omnihistory.space', external: true },
+  { label: 'Regulamin', href: '/regulamin', external: false },
+  { label: 'Kontakt', href: 'https://hexart.pl/#contact', external: true },
 ];
 
 export default function SiteFooter() {
@@ -23,12 +24,12 @@ export default function SiteFooter() {
             <a
               key={link.href}
               href={link.href}
-              target="_blank"
-              rel="noopener noreferrer"
+              target={link.external ? '_blank' : undefined}
+              rel={link.external ? 'noopener noreferrer' : undefined}
               className="inline-flex items-center gap-0.5 text-[11px] text-white/30 hover:text-accent transition-colors"
             >
               {link.label}
-              <ArrowUpRight className="w-3 h-3" />
+              {link.external && <ArrowUpRight className="w-3 h-3" />}
             </a>
           ))}
         </nav>
