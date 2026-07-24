@@ -526,6 +526,9 @@ describe('expiration', () => {
     });
     expect(complete.status).toBe(200);
 
+    // Let the scan (if any) settle before pulling the file back.
+    expect(await waitUntilReady(init.transferId)).toBe('ready');
+
     const download = await fetch(`${BASE}/api/transfer/${init.transferId}/download`);
     expect(new Uint8Array(await download.arrayBuffer()).length).toBe(data.length);
   });
