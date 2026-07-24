@@ -60,9 +60,13 @@ export interface ProgressUpdate {
 }
 
 export interface Stats {
+  /** Lifetime totals - everything ever sent. Only ever grows. */
   totalTransfers: number;
   totalBytes: number;
   totalGB: string;
+  /** What the service is holding right now, pending expiry. */
+  storedTransfers: number;
+  storedBytes: number;
   activeTransfers: number;
   updatedAt: string;
 }

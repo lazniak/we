@@ -321,6 +321,21 @@ export function getStats(): Stats {
   return db.query('SELECT * FROM stats WHERE id = 1').get() as Stats;
 }
 
+/**
+ * What the service is holding right now. Distinct from the stats table, which
+ * is a lifetime counter that only ever goes up.
+ */
+export function getStoredTotals(): { transfers: number; bytes: number } {
+  const row = db
+    .query(
+      `SELECT COUNT(*) AS transfers, COALESCE(SUM(total_size), 0) AS bytes
+         FROM transfers
+        WHERE datetime(expires_at) > datetime('now')`,
+    )
+    .get() as { transfers: number; bytes: number };
+  return row;
+}
+
 export function getActiveTransfersCount(): number {
   const result = db
     .query(
