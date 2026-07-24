@@ -75,7 +75,19 @@ export function consumeKey(
 
 /** Counts one request against a category for an IP. */
 export function consume(category: RateCategory, ip: string): RateResult {
-  return consumeKey(`${category}|${ip}`, RATE_LIMITS[category], Date.now());
+  const rule = RATE_LIMITS[category];
+
+  // No proxy header means a direct-to-backend caller: local dev, the test
+  // suite, or a localhost health check. Production traffic always arrives
+  // through nginx with an X-Forwarded-For, so real clients are still counted by
+  // their address - and the backend only listens on 127.0.0.1, so nothing
+  // untrusted can reach it without going through the proxy. Exempting it keeps
+  // the throttle from tripping on trusted local request storms.
+  if (ip === 'unknown') {
+    return { ok: true, limit: rule.max, remaining: rule.max, resetAt: Date.now(), retryAfterSec: 0 };
+  }
+
+  return consumeKey(`${category}|${ip}`, rule, Date.now());
 }
 
 /** Test-only: forget every bucket. */
