@@ -52,3 +52,6 @@ backend/dist/
 # Database backups (never belong in the repo)
 data/
 *.bak-*
+
+# Next.js auto-generated, regenerated on every build (breaks git pull on the server)
+frontend/next-env.d.ts
