@@ -48,3 +48,7 @@ Thumbs.db
 # Production
 frontend/.next/
 backend/dist/
+
+# Database backups (never belong in the repo)
+data/
+*.bak-*
