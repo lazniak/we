@@ -228,23 +228,11 @@ async function serveSingleFile(
 
   const name = basenameOf(file.rel_path);
 
-  // Executables and scripts are never handed over raw: they go out inside a
-  // ZIP, so no browser or shell treats the result as something to run.
-  if (file.is_dangerous) {
-    if (inline) return jsonError('Preview not available for this file type', 415, origin);
-    incrementDownloadCount(transfer.id);
-    const entries: ZipEntry[] = [
-      {
-        name,
-        size,
-        crc: await ensureCrc(transfer.id, file),
-        isDir: false,
-        open: () => Bun.file(path).stream() as ReadableStream<Uint8Array>,
-      },
-    ];
-    return zipResponse(entries, `${name}.zip`, new Date(transfer.created_at), origin, headOnly);
-  }
-
+  // Preview is judged purely on how the content can be shown, not on whether a
+  // download of it would be runnable. A .py or .js is dangerous to download
+  // (it is handed over zipped below) yet perfectly safe to preview, because a
+  // preview is served as text/plain and cannot execute. Only types with no
+  // inert representation at all are refused here.
   if (inline) {
     const mime = previewMime(file.rel_path);
     if (!mime) return jsonError('Preview not available for this file type', 415, origin);
@@ -258,6 +246,22 @@ async function serveSingleFile(
       headOnly,
       previewCsp(file.rel_path),
     );
+  }
+
+  // Downloading is where runnability matters: executables and scripts go out
+  // inside a ZIP so nothing treats the result as ready to run.
+  if (file.is_dangerous) {
+    incrementDownloadCount(transfer.id);
+    const entries: ZipEntry[] = [
+      {
+        name,
+        size,
+        crc: await ensureCrc(transfer.id, file),
+        isDir: false,
+        open: () => Bun.file(path).stream() as ReadableStream<Uint8Array>,
+      },
+    ];
+    return zipResponse(entries, `${name}.zip`, new Date(transfer.created_at), origin, headOnly);
   }
 
   if (!headOnly) incrementDownloadCount(transfer.id);

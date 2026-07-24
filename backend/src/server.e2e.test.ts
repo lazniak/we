@@ -214,8 +214,32 @@ describe('upload → download round trip', () => {
     const zip = await JSZip.loadAsync(new Uint8Array(await res.arrayBuffer()));
     expect(zip.file('setup.exe')).not.toBeNull();
 
+    // A binary executable has no inert representation, so preview is refused.
     const preview = await fetch(`${BASE}/api/transfer/${transferId}/preview/${exe.id}`);
     expect(preview.status).toBe(415);
+  });
+
+  it('previews an executable script as harmless text while zipping its download', async () => {
+    // A .py is dangerous to download (handed over zipped) but safe to preview,
+    // because the preview is served as text/plain and cannot run.
+    const init = await createTransfer([
+      { path: 'deploy.py', data: text('import os\nprint("to jest tylko tekst")') },
+    ]);
+
+    const info = await (await fetch(`${BASE}/api/transfer/${init.transferId}`)).json();
+    const script = info.entries[0];
+    expect(script.isDangerous).toBe(true);
+    expect(script.previewable).toBe(true);
+
+    const preview = await fetch(`${BASE}/api/transfer/${init.transferId}/preview/${script.id}`);
+    expect(preview.status).toBe(200);
+    expect(preview.headers.get('content-type')).toBe('text/plain; charset=utf-8');
+    expect(await preview.text()).toContain('tylko tekst');
+
+    // Downloading it is still an opaque, zipped attachment.
+    const download = await fetch(`${BASE}/api/transfer/${init.transferId}/file/${script.id}`);
+    expect(download.headers.get('content-type')).toBe('application/zip');
+    expect(download.headers.get('content-disposition')).toContain('deploy.py.zip');
   });
 
   it('never lets uploaded markup render in the site origin', async () => {
@@ -243,7 +267,7 @@ describe('upload → download round trip', () => {
     expect(svg.headers.get('content-type')).toBe('image/svg+xml');
     expect(svg.headers.get('content-security-policy')).toContain('sandbox');
 
-    // Anything outside the allow-list is still refused outright.
+    // A binary type with no inert representation is still refused outright.
     expect(
       (await fetch(`${BASE}/api/transfer/${init.transferId}/preview/${byName('.docx').id}`)).status,
     ).toBe(415);
