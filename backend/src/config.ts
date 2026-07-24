@@ -60,6 +60,23 @@ export const RATE_LIMIT_MAX_TRANSFERS = 60;
  */
 export const BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
 
+/**
+ * Antivirus. The scan runs once the upload has landed and before the transfer
+ * becomes downloadable. Set AV_ENABLED=0 where no clamd exists, otherwise
+ * every transfer would be reported as unscanned.
+ */
+export const AV_ENABLED = process.env.AV_ENABLED !== '0';
+
+/**
+ * Files above this size are passed through unscanned. clamd refuses very
+ * large inputs anyway, and the formats that carry executable payloads are
+ * essentially never this big.
+ */
+export const AV_MAX_FILE_BYTES = Number(process.env.AV_MAX_FILE_BYTES || 512 * 1024 * 1024);
+
+/** Ceiling on one scan, so a pathological archive cannot stall a transfer. */
+export const AV_TIMEOUT_MS = Number(process.env.AV_TIMEOUT_MS || 5 * 60 * 1000);
+
 export const ALLOWED_ORIGINS = (
   process.env.ALLOWED_ORIGINS ||
   'https://we.pablogfx.com,http://localhost:3002,http://localhost:3000'

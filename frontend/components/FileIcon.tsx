@@ -286,33 +286,70 @@ export function FileIcon({ filename, mimeType, size = 'md', className = '' }: Fi
 }
 
 /*
- * Preview helpers. These deliberately mirror the server's inline allow-list:
- * the backend refuses to render anything else, so listing an extension here
- * that it will not serve would only produce a broken preview.
+ * Preview helpers. These mirror the server's inline allow-list in
+ * backend/src/lib/fileSafety.ts - the backend refuses to serve anything else
+ * inline, so claiming an extension here that it will not serve would only
+ * produce a broken preview.
  */
-const PREVIEW_IMAGE = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp', 'ico', 'tif', 'tiff'];
-const PREVIEW_VIDEO = ['mp4', 'm4v', 'webm', 'ogv', 'mov'];
-const PREVIEW_AUDIO = ['mp3', 'wav', 'ogg', 'oga', 'flac', 'aac', 'm4a', 'opus'];
-const PREVIEW_TEXT = ['txt', 'md', 'log', 'csv', 'json', 'yml', 'yaml', 'ini'];
+export type PreviewKind = 'image' | 'svg' | 'video' | 'audio' | 'pdf' | 'text' | 'font';
 
+const PREVIEW_IMAGE = [
+  'jpg', 'jpeg', 'jfif', 'png', 'apng', 'gif', 'webp', 'avif', 'bmp', 'ico',
+  'tif', 'tiff', 'heic', 'heif',
+];
+const PREVIEW_VIDEO = ['mp4', 'm4v', 'webm', 'ogv', 'mov'];
+const PREVIEW_AUDIO = ['mp3', 'wav', 'ogg', 'oga', 'opus', 'flac', 'aac', 'm4a', 'weba'];
+const PREVIEW_FONT = ['ttf', 'otf', 'woff', 'woff2'];
+const PREVIEW_TEXT = new Set([
+  'txt', 'md', 'markdown', 'rst', 'log', 'csv', 'tsv',
+  'json', 'jsonc', 'json5', 'yml', 'yaml', 'toml', 'ini', 'cfg', 'conf', 'properties',
+  'xml', 'plist', 'html', 'htm', 'xhtml', 'css', 'scss', 'sass', 'less',
+  'js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'vue', 'svelte',
+  'py', 'rb', 'php', 'pl', 'lua', 'r', 'sh', 'bash', 'zsh', 'fish',
+  'sql', 'graphql', 'gql', 'proto',
+  'c', 'h', 'cpp', 'hpp', 'cc', 'cs', 'java', 'kt', 'go', 'rs', 'swift', 'm', 'mm',
+  'bat', 'cmd', 'ps1', 'srt', 'vtt', 'ass', 'sub', 'diff', 'patch', 'env', 'gitignore',
+]);
+
+export function previewKindOf(filename: string): PreviewKind | null {
+  const ext = getExtension(filename);
+
+  if (PREVIEW_IMAGE.includes(ext)) return 'image';
+  if (ext === 'svg' || ext === 'svgz') return 'svg';
+  if (PREVIEW_VIDEO.includes(ext)) return 'video';
+  if (PREVIEW_AUDIO.includes(ext)) return 'audio';
+  if (ext === 'pdf') return 'pdf';
+  if (PREVIEW_FONT.includes(ext)) return 'font';
+  if (PREVIEW_TEXT.has(ext)) return 'text';
+
+  return null;
+}
+
+export function isTabularFile(filename: string): boolean {
+  const ext = getExtension(filename);
+  return ext === 'csv' || ext === 'tsv';
+}
+
+/** Thumbnails only make sense for things that paint something recognisable. */
 export function isImageFile(filename: string, mimeType?: string): boolean {
-  return PREVIEW_IMAGE.includes(getExtension(filename)) || !!mimeType?.startsWith('image/');
+  const kind = previewKindOf(filename);
+  return kind === 'image' || kind === 'svg' || !!mimeType?.startsWith('image/');
 }
 
 export function isVideoFile(filename: string, mimeType?: string): boolean {
-  return PREVIEW_VIDEO.includes(getExtension(filename)) || !!mimeType?.startsWith('video/');
+  return previewKindOf(filename) === 'video' || !!mimeType?.startsWith('video/');
 }
 
 export function isAudioFile(filename: string, mimeType?: string): boolean {
-  return PREVIEW_AUDIO.includes(getExtension(filename)) || !!mimeType?.startsWith('audio/');
+  return previewKindOf(filename) === 'audio' || !!mimeType?.startsWith('audio/');
 }
 
 export function isPdfFile(filename: string): boolean {
-  return getExtension(filename) === 'pdf';
+  return previewKindOf(filename) === 'pdf';
 }
 
 export function isTextFile(filename: string): boolean {
-  return PREVIEW_TEXT.includes(getExtension(filename));
+  return previewKindOf(filename) === 'text';
 }
 
 export default FileIcon;

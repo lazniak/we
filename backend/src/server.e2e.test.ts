@@ -207,20 +207,39 @@ describe('upload → download round trip', () => {
     const init = await createTransfer([
       { path: 'page.html', data: text('<script>alert(document.domain)</script>') },
       { path: 'logo.svg', data: text('<svg xmlns="http://www.w3.org/2000/svg"></svg>') },
+      { path: 'notes.docx', data: text('binary-ish') },
     ]);
 
     const info = await (await fetch(`${BASE}/api/transfer/${init.transferId}`)).json();
-    for (const entry of info.entries.filter((e: { isDir: boolean }) => !e.isDir)) {
-      expect(entry.previewable).toBe(false);
+    const byName = (suffix: string) =>
+      info.entries.find((e: { path: string }) => e.path.endsWith(suffix));
 
+    // Markup is readable, but only ever as source: text/plain cannot execute.
+    const html = await fetch(`${BASE}/api/transfer/${init.transferId}/preview/${byName('.html').id}`);
+    expect(html.status).toBe(200);
+    expect(html.headers.get('content-type')).toBe('text/plain; charset=utf-8');
+    expect(html.headers.get('content-security-policy')).toContain("default-src 'none'");
+    expect(html.headers.get('content-security-policy')).toContain('sandbox');
+
+    // SVG keeps its own type so it can be shown as a picture, and carries a
+    // policy that forbids scripts even if opened as a top level document.
+    const svg = await fetch(`${BASE}/api/transfer/${init.transferId}/preview/${byName('.svg').id}`);
+    expect(svg.status).toBe(200);
+    expect(svg.headers.get('content-type')).toBe('image/svg+xml');
+    expect(svg.headers.get('content-security-policy')).toContain('sandbox');
+
+    // Anything outside the allow-list is still refused outright.
+    expect(
+      (await fetch(`${BASE}/api/transfer/${init.transferId}/preview/${byName('.docx').id}`)).status,
+    ).toBe(415);
+
+    // Downloading any of them stays an opaque attachment.
+    for (const entry of info.entries.filter((e: { isDir: boolean }) => !e.isDir)) {
       const res = await fetch(`${BASE}/api/transfer/${init.transferId}/file/${entry.id}`);
       expect(res.headers.get('content-type')).toBe('application/octet-stream');
       expect(res.headers.get('content-disposition')).toContain('attachment');
       expect(res.headers.get('x-content-type-options')).toBe('nosniff');
-
-      expect(
-        (await fetch(`${BASE}/api/transfer/${init.transferId}/preview/${entry.id}`)).status,
-      ).toBe(415);
+      expect(res.headers.get('content-security-policy')).toContain('sandbox');
     }
   });
 

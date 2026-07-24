@@ -22,12 +22,14 @@ import {
   getFileChunks,
   getTransfer,
   getTransferFileByIndex,
+  getScanningTransfers,
   getTransferFiles,
   isExpired,
   markUploading,
   recordChunk,
   refreshProgress,
   setFileCrc,
+  setScanVerdict,
   type Transfer,
 } from '../db';
 import { broadcastProgress } from '../websocket';
@@ -40,6 +42,7 @@ import {
 } from '../lib/safePath';
 import { isDangerousFile, previewMime } from '../lib/fileSafety';
 import { computeCrcFromDisk } from '../lib/fileCrc';
+import { scanFiles } from '../lib/antivirus';
 import {
   ensureUploadsDir,
   fileSizeOrNull,
@@ -113,6 +116,71 @@ export function purgeTransferFromDisk(id: string): void {
       /* best effort */
     }
   }
+}
+
+/* -------------------------------------------------------------- scanning */
+
+/**
+ * Runs the antivirus over a finished transfer and publishes the verdict.
+ *
+ * A named threat destroys the whole payload rather than the offending file:
+ * malicious uploads arrive as a set (installer plus loader plus archive), so
+ * keeping "the rest" would be a false reassurance.
+ *
+ * When no scanner is reachable the transfer is released anyway. This is a
+ * transfer tool, not a quarantine - executables are already handed over
+ * wrapped in a ZIP, and refusing every upload because a daemon is down would
+ * be the wrong trade.
+ */
+export async function runScan(id: string): Promise<void> {
+  try {
+    const files = getTransferFiles(id)
+      .filter((file) => !file.is_dir)
+      .map((file) => ({
+        path: storagePath(id, file.storage_name),
+        relPath: file.rel_path,
+      }));
+
+    const result = await scanFiles(files);
+
+    if (!result.clean) {
+      const threat = result.threats[0];
+      console.warn(
+        `🦠 Threat in ${id}: ${threat.name} (${threat.path}) - destroying payload`,
+      );
+      purgeTransferFromDisk(id);
+      setScanVerdict(id, threat.name);
+
+      broadcastProgress(id, {
+        type: 'error',
+        transferId: id,
+        status: 'infected',
+        error: threat.name,
+      });
+      return;
+    }
+
+    if (result.skipped.length > 0) {
+      console.log(`🛡️  ${id}: ${result.skipped.length} file(s) too large to scan`);
+    }
+
+    setScanVerdict(id, null);
+    broadcastProgress(id, { type: 'complete', transferId: id, progress: 100, status: 'ready' });
+  } catch (error) {
+    // Never strand a transfer in "scanning" because of a scanner problem.
+    console.error(`Scan failed for ${id}:`, error);
+    setScanVerdict(id, null);
+    broadcastProgress(id, { type: 'complete', transferId: id, progress: 100, status: 'ready' });
+  }
+}
+
+/** Finishes scans that a restart interrupted. */
+export function resumeInterruptedScans(): void {
+  const pending = getScanningTransfers();
+  if (pending.length === 0) return;
+
+  console.log(`🛡️  Resuming ${pending.length} interrupted scan(s)`);
+  for (const transfer of pending) void runScan(transfer.id);
 }
 
 /* ------------------------------------------------------------------ init */
@@ -394,7 +462,7 @@ transferRoutes.post('/:id/complete', async (c) => {
       return c.json({ error: 'Upload incomplete', missing: missing.slice(0, 50) }, 409);
     }
 
-    const completed = completeTransfer(id, actualTotal);
+    const completed = completeTransfer(id, actualTotal, 'scanning');
     clearChunks(id);
 
     broadcastProgress(id, {
@@ -403,14 +471,18 @@ transferRoutes.post('/:id/complete', async (c) => {
       progress: 100,
       uploadedSize: actualTotal,
       totalSize: actualTotal,
-      status: 'ready',
+      status: completed?.status ?? 'scanning',
     });
 
     console.log(`✅ Transfer complete: ${id} (${(actualTotal / 1024 / 1024).toFixed(1)} MB)`);
 
+    // The scan runs detached: the sender gets their link back immediately,
+    // while downloads stay closed until there is a verdict.
+    void runScan(id);
+
     return c.json({
       success: true,
-      status: completed?.status ?? 'ready',
+      status: completed?.status ?? 'scanning',
       totalSize: actualTotal,
       downloadUrl: `/api/transfer/${id}/download`,
     });
@@ -464,6 +536,7 @@ transferRoutes.get('/:id', (c) => {
     created_at: transfer.created_at,
     expires_at: transfer.expires_at,
     download_count: transfer.download_count,
+    threatName: transfer.threat_name,
     progress,
     entries,
     fileCount: fileEntries.length,

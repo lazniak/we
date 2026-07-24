@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertCircle, Clock, Download, FileArchive, Loader2 } from 'lucide-react';
+import {
+  AlertCircle,
+  Clock,
+  Download,
+  FileArchive,
+  Loader2,
+  ShieldAlert,
+  ShieldCheck,
+} from 'lucide-react';
 import { api, triggerDownload } from '@/lib/api';
 import { formatBytes, formatEta, formatRemaining, plural } from '@/lib/format';
 import { TransferWebSocket } from '@/lib/websocket';
@@ -12,7 +20,15 @@ import Logo from '@/components/Logo';
 import SiteFooter from '@/components/SiteFooter';
 import type { ProgressUpdate, TransferInfo } from '@/lib/types';
 
-type PageStatus = 'loading' | 'uploading' | 'ready' | 'expired' | 'not_found' | 'error';
+type PageStatus =
+  | 'loading'
+  | 'uploading'
+  | 'scanning'
+  | 'ready'
+  | 'infected'
+  | 'expired'
+  | 'not_found'
+  | 'error';
 
 export default function TransferPage() {
   const params = useParams();
@@ -50,6 +66,8 @@ export default function TransferPage() {
       setProgress(data.progress ?? 0);
 
       if (data.status === 'ready') setStatus('ready');
+      else if (data.status === 'scanning') setStatus('scanning');
+      else if (data.status === 'infected') setStatus('infected');
       else if (data.status === 'expired') setStatus('expired');
       else setStatus('uploading');
 
@@ -66,7 +84,7 @@ export default function TransferPage() {
 
   // Podgląd postępu na żywo, gdy nadawca jeszcze wysyła.
   useEffect(() => {
-    if (status !== 'uploading') return;
+    if (status !== 'uploading' && status !== 'scanning') return;
 
     const socket = new TransferWebSocket(transferId);
 
@@ -93,8 +111,10 @@ export default function TransferPage() {
 
     // Odpytywanie jako zabezpieczenie, gdyby websocket się nie przebił.
     const poll = setInterval(() => {
-      if (statusRef.current === 'uploading') void fetchTransfer();
-    }, 4000);
+      if (statusRef.current === 'uploading' || statusRef.current === 'scanning') {
+        void fetchTransfer();
+      }
+    }, 2500);
 
     return () => {
       unsubscribe();
@@ -167,6 +187,44 @@ export default function TransferPage() {
               title="Link wygasł"
               body="Ten transfer wygasł, a pliki zostały trwale usunięte z serwera."
             />
+          )}
+
+          {status === 'scanning' && (
+            <div className="glass rounded-2xl p-6 animate-fade-in text-center">
+              <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-5">
+                <ShieldCheck className="w-6 h-6 text-accent animate-pulse" />
+              </div>
+              <h1 className="font-display text-base font-semibold text-white/80 mb-1">
+                Sprawdzanie antywirusowe
+              </h1>
+              <p className="text-xs text-white/40">
+                Pliki dotarły i są właśnie skanowane. Zwykle trwa to kilka sekund —
+                strona odblokuje się sama.
+              </p>
+            </div>
+          )}
+
+          {status === 'infected' && (
+            <div className="glass rounded-2xl p-6 animate-fade-in text-center border border-red-500/20">
+              <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-5">
+                <ShieldAlert className="w-6 h-6 text-red-400" />
+              </div>
+              <h1 className="font-display text-lg text-white/85 mb-2">
+                Transfer zablokowany
+              </h1>
+              <p className="text-sm text-white/45 mb-4">
+                Skaner antywirusowy wykrył zagrożenie, więc pliki zostały natychmiast
+                usunięte z serwera. Nic nie da się już pobrać.
+              </p>
+              {transfer?.threatName && (
+                <p className="text-[11px] text-red-300/60 font-mono mb-5 break-all">
+                  {transfer.threatName}
+                </p>
+              )}
+              <a href="/" className="text-xs text-accent hover:text-accent-light transition-colors">
+                Wyślij własne pliki
+              </a>
+            </div>
           )}
 
           {status === 'error' && (

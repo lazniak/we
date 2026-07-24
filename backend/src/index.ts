@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { ALLOWED_ORIGINS, BIND_HOST, MAX_CHUNK_BYTES } from './config';
 import { initDb } from './db';
-import { transferRoutes } from './routes/transfer';
+import { resumeInterruptedScans, transferRoutes } from './routes/transfer';
 import { statsRoutes } from './routes/stats';
 import { setupWebSocket, clients } from './websocket';
 import { startCleanupJob } from './cleanup';
@@ -14,6 +14,7 @@ const app = new Hono();
 
 initDb();
 startCleanupJob();
+resumeInterruptedScans();
 
 app.use('*', logger());
 

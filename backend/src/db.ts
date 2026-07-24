@@ -16,7 +16,15 @@ db.run('PRAGMA synchronous = NORMAL');
 db.run('PRAGMA foreign_keys = ON');
 db.run('PRAGMA busy_timeout = 5000');
 
-export type TransferStatus = 'pending' | 'uploading' | 'ready' | 'expired';
+export type TransferStatus =
+  | 'pending'
+  | 'uploading'
+  /** Payload landed, waiting on the antivirus verdict. Not downloadable yet. */
+  | 'scanning'
+  | 'ready'
+  /** A threat was named; the payload has been destroyed. */
+  | 'infected'
+  | 'expired';
 
 export interface Transfer {
   id: string;
@@ -32,6 +40,7 @@ export interface Transfer {
   owner_token: string | null;
   file_count: number;
   completed_at: string | null;
+  threat_name: string | null;
 }
 
 export interface Stats {
@@ -151,6 +160,7 @@ export function initDb() {
   addColumn('transfers', 'owner_token', 'TEXT');
   addColumn('transfers', 'file_count', 'INTEGER DEFAULT 0');
   addColumn('transfers', 'completed_at', 'DATETIME');
+  addColumn('transfers', 'threat_name', 'TEXT');
   addColumn('transfer_files', 'file_index', 'INTEGER DEFAULT 0');
   addColumn('transfer_files', 'rel_path', 'TEXT');
   addColumn('transfer_files', 'is_dir', 'INTEGER DEFAULT 0');
@@ -252,20 +262,24 @@ export function refreshProgress(id: string): Transfer | undefined {
   return getTransfer(id);
 }
 
-export function completeTransfer(id: string, totalSize: number): Transfer | undefined {
+export function completeTransfer(
+  id: string,
+  totalSize: number,
+  status: 'ready' | 'scanning' = 'ready',
+): Transfer | undefined {
   const before = getTransfer(id);
   if (!before) return undefined;
 
   db.run(
     `UPDATE transfers
-       SET status = 'ready', total_size = ?, uploaded_size = ?, completed_at = CURRENT_TIMESTAMP
+       SET status = ?, total_size = ?, uploaded_size = ?, completed_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
-    [totalSize, totalSize, id],
+    [status, totalSize, totalSize, id],
   );
 
   // Statistics are counted once per transfer, no matter how often the client
   // retries the complete call.
-  if (before.status !== 'ready') {
+  if (before.status !== 'ready' && before.status !== 'scanning') {
     db.run(
       `UPDATE stats
          SET total_transfers = total_transfers + 1,
@@ -277,6 +291,21 @@ export function completeTransfer(id: string, totalSize: number): Transfer | unde
   }
 
   return getTransfer(id);
+}
+
+/** Records the antivirus verdict once the scan finishes. */
+export function setScanVerdict(id: string, threat: string | null): Transfer | undefined {
+  db.run('UPDATE transfers SET status = ?, threat_name = ? WHERE id = ?', [
+    threat ? 'infected' : 'ready',
+    threat,
+    id,
+  ]);
+  return getTransfer(id);
+}
+
+/** Transfers left mid-scan by a restart, so the sweep can finish the job. */
+export function getScanningTransfers(): Transfer[] {
+  return db.query(`SELECT * FROM transfers WHERE status = 'scanning'`).all() as Transfer[];
 }
 
 export function incrementDownloadCount(id: string): void {
@@ -330,7 +359,8 @@ export function getStoredTotals(): { transfers: number; bytes: number } {
     .query(
       `SELECT COUNT(*) AS transfers, COALESCE(SUM(total_size), 0) AS bytes
          FROM transfers
-        WHERE datetime(expires_at) > datetime('now')`,
+        WHERE datetime(expires_at) > datetime('now')
+          AND status IN ('ready', 'scanning')`,
     )
     .get() as { transfers: number; bytes: number };
   return row;

@@ -12,7 +12,7 @@ export interface TransferEntry {
 
 export interface TransferInfo {
   id: string;
-  status: 'pending' | 'uploading' | 'ready' | 'expired';
+  status: 'pending' | 'uploading' | 'scanning' | 'ready' | 'infected' | 'expired';
   filename: string;
   total_size: number;
   uploaded_size: number;
@@ -21,6 +21,8 @@ export interface TransferInfo {
   created_at: string;
   expires_at: string;
   download_count: number;
+  /** Nazwa zagrozenia, gdy antywirus cos znalazl. */
+  threatName: string | null;
   progress: number;
   entries: TransferEntry[];
   fileCount: number;

@@ -1,7 +1,18 @@
 import type { InitTransferFile } from './types';
 
 const PARALLEL_UPLOADS = 4;
-const MAX_ATTEMPTS = 4;
+
+/**
+ * Retry budget for a single chunk: 0.4 + 0.8 + 1.6 + 3.2 + 6.4 + 8 + 8 s,
+ * about 28 seconds in total.
+ *
+ * Sized deliberately: a backend restart (deploy, crash, pm2 reload) takes
+ * ten to twenty seconds, and an upload in flight has to ride straight
+ * through it instead of dying at the user's expense.
+ */
+const MAX_ATTEMPTS = 8;
+const RETRY_BASE_MS = 400;
+const RETRY_CAP_MS = 8_000;
 
 export interface UploadProgress {
   uploadedBytes: number;
@@ -156,7 +167,7 @@ export async function uploadFiles({
         if (error instanceof PermanentUploadError || attempt === MAX_ATTEMPTS) throw error;
       }
 
-      await sleep(400 * 2 ** (attempt - 1), signal);
+      await sleep(Math.min(RETRY_BASE_MS * 2 ** (attempt - 1), RETRY_CAP_MS), signal);
     }
   };
 
@@ -181,11 +192,15 @@ export async function uploadFiles({
   );
 }
 
-/** Marks the transfer ready. Retried a few times because it ends the upload. */
+/**
+ * Marks the transfer ready. Retried on the same budget as the chunks - losing
+ * this call would waste an upload that already fully arrived.
+ */
 export async function finishTransfer(transferId: string, signal?: AbortSignal): Promise<void> {
   let lastError: unknown;
+  const attempts = 6;
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
     if (signal?.aborted) throw new UploadAbortedError();
 
     try {
@@ -209,7 +224,9 @@ export async function finishTransfer(transferId: string, signal?: AbortSignal): 
       lastError = error;
     }
 
-    if (attempt < 3) await sleep(600 * attempt, signal);
+    if (attempt < attempts) {
+      await sleep(Math.min(RETRY_BASE_MS * 2 ** attempt, RETRY_CAP_MS), signal);
+    }
   }
 
   throw lastError instanceof Error ? lastError : new Error('Could not finalise transfer');

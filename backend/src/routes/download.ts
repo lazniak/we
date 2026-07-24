@@ -21,6 +21,7 @@ import {
 import { ensureCrc } from '../lib/fileCrc';
 import {
   contentDisposition,
+  previewCsp,
   previewMime,
   safeDownloadMime,
 } from '../lib/fileSafety';
@@ -161,6 +162,7 @@ function fileResponse(
   rangeHeader: string | null,
   origin: string | null,
   headOnly: boolean,
+  csp: string | null = null,
 ): Response {
   const extra: Record<string, string> = {
     'Content-Type': mime,
@@ -169,6 +171,7 @@ function fileResponse(
     'Access-Control-Expose-Headers': 'Content-Disposition',
   };
   if (!disposition.startsWith('inline')) extra['Content-Security-Policy'] = ATTACHMENT_CSP;
+  if (csp) extra['Content-Security-Policy'] = csp;
 
   const headers = withCommonHeaders(extra, origin);
 
@@ -253,6 +256,7 @@ async function serveSingleFile(
       rangeHeader,
       origin,
       headOnly,
+      previewCsp(file.rel_path),
     );
   }
 
@@ -294,6 +298,12 @@ export async function handleDownloadRequest(
   const transfer = getTransfer(rawId);
   if (!transfer) return jsonError('Transfer not found', 404, origin);
   if (isExpired(transfer)) return jsonError('This transfer has expired', 410, origin);
+  if (transfer.status === 'infected') {
+    return jsonError('Pliki zostaly usuniete: antywirus wykryl zagrozenie', 451, origin);
+  }
+  if (transfer.status === 'scanning') {
+    return jsonError('Trwa sprawdzanie antywirusowe, sprobuj za chwile', 425, origin);
+  }
   if (transfer.status !== 'ready') return jsonError('Transfer not ready', 425, origin);
 
   const range = req.headers.get('range');
