@@ -1,9 +1,13 @@
-export interface TransferFile {
+export interface TransferEntry {
   id: number;
-  filename: string;
+  index: number;
+  /** Full relative path inside the transfer, e.g. "project/src/index.ts". */
+  path: string;
+  name: string;
   size: number;
-  mimeType?: string;
-  thumbnailPath?: string;
+  isDir: boolean;
+  isDangerous: boolean;
+  previewable: boolean;
 }
 
 export interface TransferInfo {
@@ -18,14 +22,28 @@ export interface TransferInfo {
   expires_at: string;
   download_count: number;
   progress: number;
-  files?: TransferFile[];
+  entries: TransferEntry[];
+  fileCount: number;
+  /** Downloading returns the uploaded file untouched, with no ZIP around it. */
+  isSingleFile: boolean;
+  isLegacyArchive: boolean;
+}
+
+export interface InitTransferFile {
+  index: number;
+  path: string;
+  size: number;
+  chunks: number;
 }
 
 export interface InitTransferResponse {
   transferId: string;
-  uploadUrl: string;
+  ownerToken: string;
   shareUrl: string;
   expiresAt: string;
+  chunkSize: number;
+  totalSize: number;
+  files: InitTransferFile[];
 }
 
 export interface ProgressUpdate {
@@ -49,14 +67,19 @@ export interface Stats {
   updatedAt: string;
 }
 
+export type UploadPhase = 'idle' | 'preparing' | 'uploading' | 'finishing' | 'complete' | 'error';
+
 export interface UploadState {
-  phase: 'idle' | 'zipping' | 'uploading' | 'complete' | 'error';
+  phase: UploadPhase;
   transferId: string | null;
   shareUrl: string | null;
   filename: string | null;
+  fileCount: number;
+  currentFile: string | null;
   totalSize: number;
   uploadedSize: number;
   progress: number;
+  speed: number | null;
   eta: number | null;
   startTime: number | null;
   error: string | null;

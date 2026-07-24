@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, Check, Loader2 } from 'lucide-react';
+import { Check, Copy, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
+import { formatRemaining } from '@/lib/format';
 
 interface ShareLinkProps {
   shareUrl: string;
@@ -12,50 +13,47 @@ interface ShareLinkProps {
 
 export default function ShareLink({ shareUrl, expiresAt, isUploading }: ShareLinkProps) {
   const [copied, setCopied] = useState(false);
-  
-  const fullUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}${shareUrl}` 
-    : shareUrl;
-  
+
+  const fullUrl =
+    typeof window !== 'undefined' ? `${window.location.origin}${shareUrl}` : shareUrl;
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(fullUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+    } catch {
+      window.prompt('Copy this link:', fullUrl);
     }
   };
-  
+
   return (
     <div className="w-full max-w-xl mx-auto px-4 animate-fade-in">
-      <div className={clsx(
-        'rounded-2xl p-4 sm:p-5',
-        isUploading ? 'glass-accent' : 'glass'
-      )}>
-        <div className="flex items-center gap-2 mb-3">
-          {isUploading && (
-            <Loader2 className="w-3.5 h-3.5 text-accent-light animate-spin" />
-          )}
-          <span className="text-xs text-white/40 uppercase tracking-wider">
-            {isUploading ? 'Link ready' : 'Share link'}
+      <div className={clsx('rounded-2xl p-4 sm:p-5', isUploading ? 'glass-accent' : 'glass')}>
+        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+          <span className="flex items-center gap-2 text-xs text-white/40 uppercase tracking-wider">
+            {isUploading && <Loader2 className="w-3.5 h-3.5 text-accent-light animate-spin" />}
+            {isUploading ? 'Link is already live' : 'Share link'}
           </span>
+          {expiresAt && (
+            <span className="text-[11px] text-white/25">{formatRemaining(expiresAt)}</span>
+          )}
         </div>
-        
+
         <div className="flex flex-col sm:flex-row items-stretch gap-2">
           <div className="flex-1 flex items-center bg-white/[0.02] rounded-xl px-4 py-3 border border-white/5 min-w-0">
-            <span className="text-white/70 text-sm truncate font-mono w-full">
+            <span className="text-white/70 text-sm truncate font-mono w-full select-text">
               {fullUrl}
             </span>
           </div>
-          
+
           <button
             onClick={handleCopy}
             className={clsx(
               'px-5 py-3 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 shrink-0',
-              copied 
+              copied
                 ? 'bg-accent/20 text-accent-light border border-accent/30'
-                : 'btn-primary'
+                : 'btn-primary',
             )}
           >
             {copied ? (
@@ -71,10 +69,10 @@ export default function ShareLink({ shareUrl, expiresAt, isUploading }: ShareLin
             )}
           </button>
         </div>
-        
+
         {isUploading && (
           <p className="mt-3 text-xs text-accent-light/60 text-center">
-            Share now — recipients see live progress
+            Send it now — the recipient sees live progress and can download the moment it lands.
           </p>
         )}
       </div>

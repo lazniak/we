@@ -5,111 +5,86 @@ export interface TransferHistoryItem {
   expiresAt: string;
   createdAt: string;
   status: 'uploading' | 'ready' | 'expired';
+  /** Proves ownership when deleting. Never leaves this browser otherwise. */
+  ownerToken?: string;
+  size?: number;
+  fileCount?: number;
 }
 
 const STORAGE_KEY = 'we_transfer_history';
-const MAX_HISTORY = 10; // Keep last 10 transfers
+const MAX_HISTORY = 12;
 
-function getRawHistory(): TransferHistoryItem[] {
+function read(): TransferHistoryItem[] {
+  if (typeof window === 'undefined') return [];
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = window.localStorage.getItem(STORAGE_KEY);
     if (!stored) return [];
-    return JSON.parse(stored);
-  } catch (error) {
-    console.error('Failed to get raw history:', error);
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
     return [];
   }
 }
 
-export function saveTransferToHistory(item: Omit<TransferHistoryItem, 'createdAt'>) {
+function write(items: TransferHistoryItem[]): TransferHistoryItem[] {
+  if (typeof window === 'undefined') return items;
   try {
-    const history = getRawHistory();
-    const newItem: TransferHistoryItem = {
-      ...item,
-      createdAt: new Date().toISOString(),
-    };
-    
-    // Remove if already exists (update)
-    const filtered = history.filter(h => h.transferId !== item.transferId);
-    
-    // Add to beginning
-    const updated = [newItem, ...filtered].slice(0, MAX_HISTORY);
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    return updated;
-  } catch (error) {
-    console.error('Failed to save transfer history:', error);
-    return [];
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  } catch {
+    /* quota or private mode - history is a convenience, not a requirement */
   }
+  return items;
 }
 
+export function saveTransferToHistory(
+  item: Omit<TransferHistoryItem, 'createdAt'>,
+): TransferHistoryItem[] {
+  const existing = read().find((h) => h.transferId === item.transferId);
+  const entry: TransferHistoryItem = {
+    ...existing,
+    ...item,
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+  };
+
+  const rest = read().filter((h) => h.transferId !== item.transferId);
+  return write([entry, ...rest].slice(0, MAX_HISTORY));
+}
+
+/** Transfers that have not expired yet, newest first. */
 export function getTransferHistory(): TransferHistoryItem[] {
-  try {
-    const history = getRawHistory();
-    
-    // Filter out expired transfers
-    const now = new Date();
-    const active = history.filter(item => {
-      const expiresAt = new Date(item.expiresAt);
-      return expiresAt > now;
-    });
-    
-    // Update status for expired items
-    const updated = history.map(item => {
-      const expiresAt = new Date(item.expiresAt);
-      if (expiresAt <= now && item.status !== 'expired') {
-        return { ...item, status: 'expired' as const };
-      }
-      return item;
-    });
-    
-    // Save updated history if changed
-    const hasChanges = updated.some((item, idx) => {
-      const original = history[idx];
-      return !original || item.status !== original.status;
-    });
-    
-    if (hasChanges) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    }
-    
-    return active;
-  } catch (error) {
-    console.error('Failed to get transfer history:', error);
-    return [];
-  }
+  const now = Date.now();
+  const all = read();
+  const alive = all.filter((item) => new Date(item.expiresAt).getTime() > now);
+
+  if (alive.length !== all.length) write(alive);
+  return alive;
 }
 
-export function updateTransferStatus(transferId: string, status: TransferHistoryItem['status']) {
-  try {
-    const history = getRawHistory();
-    const updated = history.map(item => 
-      item.transferId === transferId ? { ...item, status } : item
-    );
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    return updated;
-  } catch (error) {
-    console.error('Failed to update transfer status:', error);
-    return [];
-  }
+export function getOwnerToken(transferId: string): string | undefined {
+  return read().find((h) => h.transferId === transferId)?.ownerToken;
 }
 
-export function removeTransferFromHistory(transferId: string) {
-  try {
-    const history = getRawHistory();
-    const filtered = history.filter(item => item.transferId !== transferId);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
-    return filtered;
-  } catch (error) {
-    console.error('Failed to remove transfer from history:', error);
-    return [];
-  }
+export function updateTransferStatus(
+  transferId: string,
+  status: TransferHistoryItem['status'],
+  patch: Partial<TransferHistoryItem> = {},
+): TransferHistoryItem[] {
+  return write(
+    read().map((item) =>
+      item.transferId === transferId ? { ...item, ...patch, status } : item,
+    ),
+  );
 }
 
-export function clearTransferHistory() {
+export function removeTransferFromHistory(transferId: string): TransferHistoryItem[] {
+  return write(read().filter((item) => item.transferId !== transferId));
+}
+
+export function clearTransferHistory(): void {
+  if (typeof window === 'undefined') return;
   try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    console.error('Failed to clear transfer history:', error);
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
   }
 }

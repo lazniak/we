@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, File, X, Plus, Folder, AlertCircle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, File, Folder, Plus, Upload, X } from 'lucide-react';
 import clsx from 'clsx';
 import { formatBytes } from '@/lib/format';
 
 export interface FilesMetadata {
   files: File[];
+  /** Relative path of each file, folder structure included. */
   paths: string[];
+  /** Every folder seen while collecting, so empty ones survive the transfer. */
+  dirs: string[];
   expirationDays: number;
-  hasFolder: boolean;  // true if any folder was dropped
-  fileCount: number;   // number of individual files
 }
 
 interface DropZoneProps {
@@ -24,310 +25,276 @@ interface FileWithPath {
   fromFolder: boolean;
 }
 
+const MAX_SIZE = 5 * 1024 * 1024 * 1024;
+const MAX_FILES = 5000;
+
+/** Recursively walks a dropped directory, recording files and folders. */
+async function readDirectory(
+  entry: FileSystemDirectoryEntry,
+  basePath: string,
+  files: FileWithPath[],
+  dirs: Set<string>,
+): Promise<void> {
+  dirs.add(basePath);
+
+  const reader = entry.createReader();
+  const children: FileSystemEntry[] = [];
+
+  // readEntries yields at most 100 items per call, so it has to be drained.
+  await new Promise<void>((resolve, reject) => {
+    const readBatch = () => {
+      reader.readEntries((batch) => {
+        if (batch.length === 0) {
+          resolve();
+          return;
+        }
+        children.push(...batch);
+        readBatch();
+      }, reject);
+    };
+    readBatch();
+  });
+
+  for (const child of children) {
+    const childPath = `${basePath}/${child.name}`;
+
+    if (child.isFile) {
+      await new Promise<void>((resolve, reject) => {
+        (child as FileSystemFileEntry).file((file) => {
+          files.push({ file, path: childPath, fromFolder: true });
+          resolve();
+        }, reject);
+      });
+    } else if (child.isDirectory) {
+      await readDirectory(child as FileSystemDirectoryEntry, childPath, files, dirs);
+    }
+  }
+}
+
 export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<FileWithPath[]>([]);
-  const [expirationDays, setExpirationDays] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('we-expiration-days');
-      return saved ? parseInt(saved, 10) : 3;
-    }
-    return 3;
-  });
+  const [selected, setSelected] = useState<FileWithPath[]>([]);
+  const [folders, setFolders] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expirationDays, setExpirationDays] = useState(3);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const directoryInputRef = useRef<HTMLInputElement>(null);
-  const dropZoneRef = useRef<HTMLDivElement>(null);
+  const dragDepth = useRef(0);
 
-  const MAX_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
+  // localStorage is only available after hydration, so the preference is read
+  // in an effect instead of during the first render.
+  useEffect(() => {
+    const saved = window.localStorage.getItem('we-expiration-days');
+    const parsed = saved ? parseInt(saved, 10) : NaN;
+    if (Number.isFinite(parsed) && parsed >= 3 && parsed <= 7) setExpirationDays(parsed);
+  }, []);
 
-  // Save expiration days preference
   const handleExpirationChange = (days: number) => {
     setExpirationDays(days);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('we-expiration-days', days.toString());
+    try {
+      window.localStorage.setItem('we-expiration-days', String(days));
+    } catch {
+      /* private mode - the choice just will not be remembered */
     }
   };
 
-  // Process directory entry recursively
-  const processDirectoryEntry = useCallback(async (
-    entry: FileSystemDirectoryEntry,
-    basePath: string = '',
-    allFiles: FileWithPath[] = []
-  ): Promise<FileWithPath[]> => {
-    return new Promise((resolve, reject) => {
-      const reader = entry.createReader();
-      const entries: FileSystemEntry[] = [];
-      
-      const readEntries = () => {
-        reader.readEntries((batch: FileSystemEntry[]) => {
-          if (batch.length === 0) {
-            // All entries read, process them
-            Promise.all(
-              entries.map(async (entry) => {
-                if (entry.isFile) {
-                  const fileEntry = entry as FileSystemFileEntry;
-                  return new Promise<void>((fileResolve, fileReject) => {
-                    fileEntry.file((file) => {
-                      const path = basePath ? `${basePath}/${file.name}` : file.name;
-                      allFiles.push({ file, path, fromFolder: true });
-                      fileResolve();
-                    }, fileReject);
-                  });
-                } else if (entry.isDirectory) {
-                  const dirEntry = entry as FileSystemDirectoryEntry;
-                  const newPath = basePath ? `${basePath}/${dirEntry.name}` : dirEntry.name;
-                  return processDirectoryEntry(dirEntry, newPath, allFiles);
-                }
-                return Promise.resolve();
-              })
-            ).then(() => resolve(allFiles)).catch(reject);
-          } else {
-            entries.push(...batch);
-            readEntries();
-          }
-        }, reject);
-      };
-      
-      readEntries();
-    });
-  }, []);
+  const addFiles = useCallback((incoming: FileWithPath[], incomingDirs: string[]) => {
+    if (incoming.length === 0 && incomingDirs.length === 0) return;
 
-  // Calculate total size of files
-  const calculateTotalSize = useCallback((files: FileWithPath[]): number => {
-    return files.reduce((acc, { file }) => acc + file.size, 0);
-  }, []);
+    setSelected((previous) => {
+      const seen = new Set(previous.map((item) => item.path));
+      const fresh = incoming.filter((item) => !seen.has(item.path));
+      const combined = [...previous, ...fresh];
 
-  // Validate and add files
-  const addFilesWithValidation = useCallback((newFiles: FileWithPath[]) => {
-    if (newFiles.length === 0) return;
-
-    setSelectedFiles(prev => {
-      const combined = [...prev, ...newFiles];
-      const totalSize = combined.reduce((acc, { file }) => acc + file.size, 0);
-      
-      if (totalSize > MAX_SIZE) {
-        setError(`Total size (${formatBytes(totalSize)}) exceeds 5GB limit`);
-        return prev; // Don't add new files
+      if (combined.length > MAX_FILES) {
+        setError(`Too many files (limit is ${MAX_FILES.toLocaleString()})`);
+        return previous;
       }
-      
+
+      const total = combined.reduce((acc, item) => acc + item.file.size, 0);
+      if (total > MAX_SIZE) {
+        setError(`Total size (${formatBytes(total)}) exceeds the 5GB limit`);
+        return previous;
+      }
+
       setError(null);
       return combined;
     });
-  }, [MAX_SIZE]);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!disabled && !isProcessing) {
-      setIsDragging(true);
-    }
-  }, [disabled, isProcessing]);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // Only set dragging to false if we're leaving the drop zone entirely
-    const rect = dropZoneRef.current?.getBoundingClientRect();
-    if (rect) {
-      const { clientX, clientY } = e;
-      if (
-        clientX < rect.left ||
-        clientX > rect.right ||
-        clientY < rect.top ||
-        clientY > rect.bottom
-      ) {
-        setIsDragging(false);
-      }
-    }
+    setFolders((previous) => [...new Set([...previous, ...incomingDirs])]);
   }, []);
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    setError(null);
-    
-    if (disabled || isProcessing) return;
-    
-    setIsProcessing(true);
-    const allFiles: FileWithPath[] = [];
-    
-    try {
-      // First, try to use DataTransferItemList (supports folders)
-      if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-        const items = Array.from(e.dataTransfer.items);
-        
-        // Process all items
-        const processPromises = items.map(async (item) => {
-          if (item.kind !== 'file') return;
-          
-          const entry = item.webkitGetAsEntry?.();
-          
-          if (entry) {
-            if (entry.isFile) {
-              const fileEntry = entry as FileSystemFileEntry;
-              return new Promise<void>((resolve, reject) => {
-                fileEntry.file((file) => {
-                  allFiles.push({ file, path: file.name, fromFolder: false });
-                  resolve();
-                }, reject);
-              });
-            } else if (entry.isDirectory) {
-              const dirEntry = entry as FileSystemDirectoryEntry;
-              const folderFiles = await processDirectoryEntry(dirEntry, dirEntry.name);
-              // Mark all files from folder
-              folderFiles.forEach(f => f.fromFolder = true);
-              allFiles.push(...folderFiles);
-            }
-          } else {
-            // Fallback: webkitGetAsEntry not supported
-            const file = item.getAsFile();
-            if (file) {
-              allFiles.push({ file, path: file.name, fromFolder: false });
-            }
-          }
-        });
-        
-        await Promise.all(processPromises);
-      } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        // Fallback: Use FileList (doesn't support folders)
-        const files = Array.from(e.dataTransfer.files);
-        files.forEach(file => {
-          allFiles.push({ file, path: file.name, fromFolder: false });
-        });
-      }
-      
-      if (allFiles.length === 0) {
-        setError('No files detected. Please try again.');
-        setIsProcessing(false);
-        return;
-      }
-      
-      addFilesWithValidation(allFiles);
-    } catch (err) {
-      console.error('Error processing drop:', err);
-      setError('Failed to process files. Please try again.');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [disabled, isProcessing, processDirectoryEntry, addFilesWithValidation]);
-
-  // Handle file input (browse files)
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : [];
-    if (files.length > 0) {
-      const filesWithPath: FileWithPath[] = files.map(file => ({ file, path: file.name, fromFolder: false }));
-      addFilesWithValidation(filesWithPath);
-    }
-    // Reset input to allow selecting the same file again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, [addFilesWithValidation]);
-
-  // Handle directory input (browse folders)
-  const handleDirectoryInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : [];
-    if (files.length > 0) {
-      // For directory input, preserve the relative path
-      const filesWithPath: FileWithPath[] = files.map(file => {
-        // webkitRelativePath contains the full path including folder name
-        const path = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
-        return { file, path, fromFolder: true };
-      });
-      
-      addFilesWithValidation(filesWithPath);
-    }
-    // Reset input
-    if (directoryInputRef.current) {
-      directoryInputRef.current.value = '';
-    }
-  }, [addFilesWithValidation]);
-
-  // Handle CTRL+V paste
-  useEffect(() => {
-    const handlePaste = async (e: ClipboardEvent) => {
+  const handleDrop = useCallback(
+    async (event: React.DragEvent) => {
+      event.preventDefault();
+      dragDepth.current = 0;
+      setIsDragging(false);
       if (disabled || isProcessing) return;
-      
-      const items = e.clipboardData?.items;
-      if (!items || items.length === 0) return;
-      
-      e.preventDefault();
+
       setIsProcessing(true);
       setError(null);
-      
-      const allFiles: FileWithPath[] = [];
-      
+
+      const files: FileWithPath[] = [];
+      const dirs = new Set<string>();
+
       try {
-        for (let i = 0; i < items.length; i++) {
-          const item = items[i];
-          
-          if (item.kind === 'file') {
-            const file = item.getAsFile();
-            if (file) {
-              // Generate a name for pasted images/files
-              let fileName = file.name;
-              if (!fileName || fileName === 'image.png') {
-                const ext = file.type.split('/')[1] || 'png';
-                fileName = `pasted-${Date.now()}.${ext}`;
+        // The DataTransfer list is only valid for the duration of the event
+        // handler, so every entry and file handle is captured synchronously
+        // before the first await.
+        const dropped = Array.from(event.dataTransfer.items || [])
+          .filter((item) => item.kind === 'file')
+          .map((item) => ({
+            entry: item.webkitGetAsEntry?.() ?? null,
+            file: item.getAsFile(),
+          }));
+        const plainFiles = Array.from(event.dataTransfer.files || []);
+
+        if (dropped.some((item) => item.entry)) {
+          await Promise.all(
+            dropped.map(async ({ entry, file }) => {
+              if (!entry) {
+                if (file) files.push({ file, path: file.name, fromFolder: false });
+                return;
               }
-              allFiles.push({ file, path: fileName, fromFolder: false });
-            }
+
+              if (entry.isFile) {
+                await new Promise<void>((resolve, reject) => {
+                  (entry as FileSystemFileEntry).file((picked) => {
+                    files.push({ file: picked, path: picked.name, fromFolder: false });
+                    resolve();
+                  }, reject);
+                });
+              } else if (entry.isDirectory) {
+                await readDirectory(entry as FileSystemDirectoryEntry, entry.name, files, dirs);
+              }
+            }),
+          );
+        } else {
+          for (const file of plainFiles) {
+            files.push({ file, path: file.name, fromFolder: false });
           }
         }
-        
-        if (allFiles.length > 0) {
-          addFilesWithValidation(allFiles);
+
+        if (files.length === 0 && dirs.size === 0) {
+          setError('Nothing to upload was found in that drop.');
+          return;
         }
+
+        addFiles(files, [...dirs]);
       } catch (err) {
-        console.error('Error processing paste:', err);
-        setError('Failed to paste files. Please try again.');
+        console.error('Drop failed:', err);
+        setError('Could not read those files. Please try again.');
       } finally {
         setIsProcessing(false);
       }
-    };
-    
-    document.addEventListener('paste', handlePaste);
-    return () => document.removeEventListener('paste', handlePaste);
-  }, [disabled, isProcessing, addFilesWithValidation]);
+    },
+    [addFiles, disabled, isProcessing],
+  );
 
-  const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-    setError(null);
-  };
+  const handleFileInput = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const picked = Array.from(event.target.files ?? []);
+      addFiles(
+        picked.map((file) => ({ file, path: file.name, fromFolder: false })),
+        [],
+      );
+      event.target.value = '';
+    },
+    [addFiles],
+  );
 
-  const clearAllFiles = () => {
-    setSelectedFiles([]);
-    setError(null);
-  };
+  const handleDirectoryInput = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const picked = Array.from(event.target.files ?? []);
+      const dirs = new Set<string>();
 
-  const handleUpload = () => {
-    if (selectedFiles.length > 0) {
-      const files = selectedFiles.map(f => f.file);
-      const paths = selectedFiles.map(f => f.path);
-      const hasFolder = selectedFiles.some(f => f.fromFolder);
-      
-      onFilesSelected({
-        files,
-        paths,
-        expirationDays,
-        hasFolder,
-        fileCount: selectedFiles.length,
+      const mapped = picked.map((file) => {
+        const relative =
+          (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
+
+        const segments = relative.split('/');
+        segments.pop();
+        let acc = '';
+        for (const segment of segments) {
+          acc = acc ? `${acc}/${segment}` : segment;
+          dirs.add(acc);
+        }
+
+        return { file, path: relative, fromFolder: true };
       });
-    }
+
+      addFiles(mapped, [...dirs]);
+      event.target.value = '';
+    },
+    [addFiles],
+  );
+
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      if (disabled || isProcessing) return;
+
+      const pasted: FileWithPath[] = [];
+      for (const item of Array.from(event.clipboardData?.items ?? [])) {
+        if (item.kind !== 'file') continue;
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        const name =
+          !file.name || file.name === 'image.png'
+            ? `pasted-${Date.now()}.${file.type.split('/')[1] || 'png'}`
+            : file.name;
+        pasted.push({ file, path: name, fromFolder: false });
+      }
+
+      if (pasted.length > 0) {
+        event.preventDefault();
+        addFiles(pasted, []);
+      }
+    };
+
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, [addFiles, disabled, isProcessing]);
+
+  const removeAt = (index: number) => {
+    setSelected((previous) => previous.filter((_, i) => i !== index));
+    setError(null);
   };
 
-  const totalSize = calculateTotalSize(selectedFiles);
-  const isOverSize = totalSize > MAX_SIZE;
+  const clearAll = () => {
+    setSelected([]);
+    setFolders([]);
+    setError(null);
+  };
+
+  const totalSize = useMemo(
+    () => selected.reduce((acc, item) => acc + item.file.size, 0),
+    [selected],
+  );
+
+  const rootFolders = useMemo(
+    () => new Set(folders.map((dir) => dir.split('/')[0])),
+    [folders],
+  );
+
+  const start = () => {
+    if (selected.length === 0 || disabled || isProcessing) return;
+    onFilesSelected({
+      files: selected.map((item) => item.file),
+      paths: selected.map((item) => item.path),
+      dirs: folders,
+      expirationDays,
+    });
+  };
 
   return (
     <div className="w-full max-w-xl mx-auto space-y-4 px-4">
-      {/* Expiration Days Selector */}
-      <div className="glass rounded-2xl p-4 animate-fade-in">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-white/40 uppercase tracking-wider">expires</span>
+      {/* Expiry */}
+      <div className="glass rounded-2xl p-3 sm:p-4 animate-fade-in">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-xs text-white/40 uppercase tracking-wider">Link expires in</span>
           <div className="flex items-center gap-1 p-1 bg-white/[0.03] rounded-xl">
             {[3, 4, 5, 6, 7].map((day) => (
               <button
@@ -339,7 +306,7 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
                   expirationDays === day
                     ? 'bg-white/10 text-white shadow-sm'
                     : 'text-white/30 hover:text-white/50 hover:bg-white/[0.03]',
-                  disabled && 'opacity-50 cursor-not-allowed'
+                  disabled && 'opacity-50 cursor-not-allowed',
                 )}
               >
                 {day}d
@@ -349,18 +316,32 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
         </div>
       </div>
 
-      {/* Drop Zone */}
+      {/* Drop target */}
       <div
-        ref={dropZoneRef}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
+        onDragEnter={(event) => {
+          event.preventDefault();
+          dragDepth.current += 1;
+          if (!disabled && !isProcessing) setIsDragging(true);
+        }}
+        onDragOver={(event) => event.preventDefault()}
+        onDragLeave={(event) => {
+          event.preventDefault();
+          dragDepth.current = Math.max(0, dragDepth.current - 1);
+          if (dragDepth.current === 0) setIsDragging(false);
+        }}
         onDrop={handleDrop}
         onClick={() => !disabled && !isProcessing && fileInputRef.current?.click()}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') fileInputRef.current?.click();
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label="Drop files or folders here, or browse"
         className={clsx(
-          'drop-zone glass-strong rounded-3xl p-16 cursor-pointer transition-all duration-300',
+          'drop-zone glass-strong rounded-3xl p-8 sm:p-14 cursor-pointer transition-all duration-300',
           isDragging && 'active',
           disabled && 'opacity-50 cursor-not-allowed',
-          isProcessing && 'opacity-75 cursor-wait'
+          isProcessing && 'opacity-75 cursor-wait',
         )}
       >
         <input
@@ -380,145 +361,121 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
           className="hidden"
           disabled={disabled || isProcessing}
         />
-        
-        <div className="flex flex-col items-center gap-6 text-center">
-          <div className={clsx(
-            'w-20 h-20 rounded-3xl flex items-center justify-center transition-all duration-300 relative',
-            isDragging 
-              ? 'bg-accent/20 scale-110 glow' 
-              : 'bg-white/5'
-          )}>
-            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
-            <Upload className={clsx(
-              'w-8 h-8 transition-colors relative z-10',
-              isDragging ? 'text-accent-light' : 'text-white/40'
-            )} />
+
+        <div className="flex flex-col items-center gap-5 text-center">
+          <div
+            className={clsx(
+              'w-16 h-16 sm:w-20 sm:h-20 rounded-3xl flex items-center justify-center transition-all duration-300 relative',
+              isDragging ? 'bg-accent/20 scale-110 glow' : 'bg-white/5',
+            )}
+          >
+            <Upload
+              className={clsx(
+                'w-7 h-7 sm:w-8 sm:h-8 transition-colors relative z-10',
+                isDragging ? 'text-accent-light' : 'text-white/40',
+              )}
+            />
           </div>
-          
+
           <div>
-            <p className="text-lg font-medium text-white/90 mb-2">
-              {isProcessing ? 'Processing...' : isDragging ? 'Drop files or folders here' : 'Drop files or folders here'}
+            <p className="text-base sm:text-lg font-medium text-white/90 mb-2">
+              {isProcessing ? 'Reading files…' : 'Drop files or folders here'}
             </p>
             <p className="text-sm text-white/40">
               or <span className="text-accent-light font-medium">browse</span> from your device
             </p>
             <p className="text-xs text-white/20 mt-3">
-              Up to 5GB per transfer · Folders supported · Ctrl+V to paste
+              Up to 5GB · folder structure preserved · Ctrl+V to paste
             </p>
           </div>
         </div>
       </div>
 
-      {/* Error Message */}
       {error && (
         <div className="glass-strong rounded-2xl p-4 border border-red-500/20 bg-red-500/5 animate-fade-in">
           <div className="flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+            <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
             <p className="text-sm text-red-300">{error}</p>
           </div>
         </div>
       )}
 
-      {/* Selected Files */}
-      {selectedFiles.length > 0 && (
-        <div className="mt-4 animate-fade-in">
-          <div className="glass-strong rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
+      {selected.length > 0 && (
+        <div className="animate-fade-in">
+          <div className="glass-strong rounded-2xl p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
               <span className="text-xs text-white/40 uppercase tracking-wider font-medium">
-                {selectedFiles.length} {selectedFiles.length === 1 ? 'item' : 'items'}
+                {selected.length} {selected.length === 1 ? 'file' : 'files'}
+                {rootFolders.size > 0 &&
+                  ` · ${rootFolders.size} ${rootFolders.size === 1 ? 'folder' : 'folders'}`}
               </span>
-              <div className="flex items-center gap-2">
+
+              <div className="flex items-center gap-1 flex-wrap">
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
-                  className="flex items-center gap-1.5 text-xs text-accent-light hover:text-accent transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1.5 text-xs text-accent-light hover:text-accent transition-colors px-2.5 py-1.5 rounded-lg hover:bg-white/5"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Add files
+                  Files
                 </button>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    directoryInputRef.current?.click();
-                  }}
-                  className="flex items-center gap-1.5 text-xs text-accent-light hover:text-accent transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
+                  onClick={() => directoryInputRef.current?.click()}
+                  className="flex items-center gap-1.5 text-xs text-accent-light hover:text-accent transition-colors px-2.5 py-1.5 rounded-lg hover:bg-white/5"
                 >
                   <Folder className="w-3.5 h-3.5" />
-                  Add folder
+                  Folder
                 </button>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    clearAllFiles();
-                  }}
-                  className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-500/10"
+                  onClick={clearAll}
+                  className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-500/10"
                 >
                   <X className="w-3.5 h-3.5" />
-                  Clear all
+                  Clear
                 </button>
               </div>
             </div>
-            
-            <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-              {selectedFiles.map((item, index) => {
-                const isFolder = item.path.includes('/');
-                return (
-                  <div
-                    key={`${item.path}-${index}`}
-                    className="flex items-center gap-3 p-3 bg-white/[0.03] rounded-xl group hover:bg-white/[0.06] transition-all"
-                  >
-                    {isFolder ? (
-                      <Folder className="w-4 h-4 text-accent/60 flex-shrink-0" />
-                    ) : (
-                      <File className="w-4 h-4 text-white/30 flex-shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white/80 truncate font-medium">{item.path}</p>
-                      <p className="text-xs text-white/30">{formatBytes(item.file.size)}</p>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeFile(index);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-white/10 rounded-lg transition-all"
-                    >
-                      <X className="w-3.5 h-3.5 text-white/40" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-            
-            {/* Total size and upload button */}
-            <div className="mt-5 pt-4 border-t border-white/8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs text-white/30">Total: </span>
-                  <span className={clsx(
-                    'text-sm font-semibold',
-                    isOverSize ? 'text-red-400' : 'text-white/80'
-                  )}>
-                    {formatBytes(totalSize)}
-                  </span>
-                  {isOverSize && (
-                    <p className="text-xs text-red-400 mt-1">Exceeds 5GB limit</p>
-                  )}
-                </div>
-                
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleUpload();
-                  }}
-                  disabled={disabled || isOverSize || isProcessing}
-                  className="btn-primary px-8 py-3 rounded-xl font-medium text-sm shadow-lg shadow-accent/20 hover:shadow-accent/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+
+            <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
+              {selected.map((item, index) => (
+                <div
+                  key={`${item.path}-${index}`}
+                  className="flex items-center gap-3 p-2.5 bg-white/[0.03] rounded-xl group hover:bg-white/[0.06] transition-all"
                 >
-                  Transfer
-                </button>
+                  {item.fromFolder ? (
+                    <Folder className="w-4 h-4 text-accent/60 shrink-0" />
+                  ) : (
+                    <File className="w-4 h-4 text-white/30 shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white/80 truncate font-medium">{item.path}</p>
+                    <p className="text-xs text-white/30">{formatBytes(item.file.size)}</p>
+                  </div>
+                  <button
+                    onClick={() => removeAt(index)}
+                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 hover:bg-white/10 rounded-lg transition-all"
+                    aria-label={`Remove ${item.path}`}
+                  >
+                    <X className="w-3.5 h-3.5 text-white/40" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 pt-4 border-t border-white/10 flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <span className="text-xs text-white/30">Total </span>
+                <span className="text-sm font-semibold text-white/80">
+                  {formatBytes(totalSize)}
+                </span>
               </div>
+
+              <button
+                onClick={start}
+                disabled={disabled || isProcessing}
+                className="btn-primary px-8 py-3 rounded-xl font-medium text-sm shadow-lg shadow-accent/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Transfer
+              </button>
             </div>
           </div>
         </div>

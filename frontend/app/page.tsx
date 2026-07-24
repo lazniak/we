@@ -1,25 +1,32 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import DropZone, { type FilesMetadata } from '@/components/DropZone';
 import UploadProgress from '@/components/UploadProgress';
 import ShareLink from '@/components/ShareLink';
 import Stats from '@/components/Stats';
 import TransferHistory from '@/components/TransferHistory';
 import Logo from '@/components/Logo';
-import { zipFiles, zipFilesWithFolders, generateZipFilename } from '@/lib/zipper';
-import { uploadChunked, calculateChunksTotal } from '@/lib/chunker';
-import { saveTransferToHistory, updateTransferStatus } from '@/lib/transferHistory';
-import type { UploadState, InitTransferResponse } from '@/lib/types';
+import { finishTransfer, UploadAbortedError, uploadFiles } from '@/lib/uploader';
+import {
+  getOwnerToken,
+  removeTransferFromHistory,
+  saveTransferToHistory,
+  updateTransferStatus,
+} from '@/lib/transferHistory';
+import type { InitTransferResponse, UploadState } from '@/lib/types';
 
 const initialState: UploadState = {
   phase: 'idle',
   transferId: null,
   shareUrl: null,
   filename: null,
+  fileCount: 0,
+  currentFile: null,
   totalSize: 0,
   uploadedSize: 0,
   progress: 0,
+  speed: null,
   eta: null,
   startTime: null,
   error: null,
@@ -28,236 +35,146 @@ const initialState: UploadState = {
 export default function HomePage() {
   const [state, setState] = useState<UploadState>(initialState);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const isBusy =
+    state.phase === 'preparing' || state.phase === 'uploading' || state.phase === 'finishing';
+
+  // Closing the tab mid upload throws the transfer away, so the browser is
+  // asked to confirm. Browsers only honour this after a real interaction,
+  // which uploading always involves.
+  useEffect(() => {
+    if (!isBusy) return;
+
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+      return '';
+    };
+
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [isBusy]);
 
   const handleFilesSelected = useCallback(async (metadata: FilesMetadata) => {
-    const { files, paths, expirationDays, hasFolder, fileCount } = metadata;
-    
+    const { files, paths, dirs, expirationDays } = metadata;
+    if (files.length === 0) return;
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const totalSize = files.reduce((acc, file) => acc + file.size, 0);
+
+    setState({
+      ...initialState,
+      phase: 'preparing',
+      fileCount: files.length,
+      totalSize,
+      startTime: Date.now(),
+    });
+
     try {
-      // Calculate total size and check for large files
-      const totalSize = files.reduce((acc, f) => acc + f.size, 0);
-      const hasLargeFile = files.some(f => f.size > 50 * 1024 * 1024); // >50MB
-      const isLargeTotal = totalSize > 50 * 1024 * 1024; // >50MB total
-      
-      // Packaging strategy:
-      // 1. Folder dropped → always ZIP
-      // 2. Large file (>50MB) or large total → ZIP (for chunked upload)
-      // 3. <10 small files → upload without ZIP (individual downloads)
-      // 4. >=10 files → ZIP
-      const shouldZip = hasFolder || fileCount >= 10 || hasLargeFile || isLargeTotal;
-      
-      if (shouldZip) {
-        // ZIP and upload
-        const filename = `${generateZipFilename(files)}.zip`;
-        
-        setState(prev => ({
-          ...prev,
-          phase: 'zipping',
-          filename: generateZipFilename(files),
-          progress: 0,
-        }));
+      const response = await fetch('/api/transfer/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          expirationDays,
+          dirs,
+          files: files.map((file, index) => ({
+            path: paths[index] || file.name,
+            size: file.size,
+            type: file.type,
+          })),
+        }),
+        signal: controller.signal,
+      });
 
-        const hasFolders = paths.some(p => p.includes('/'));
-        const zipPromise = hasFolders 
-          ? zipFilesWithFolders(files.map((f, i) => ({ file: f, path: paths[i] })), (progress) => {
-              setState(prev => ({
-                ...prev,
-                progress: progress.percent,
-              }));
-            })
-          : zipFiles(files, (progress) => {
-              setState(prev => ({
-                ...prev,
-                progress: progress.percent,
-              }));
-            });
-
-        const estimatedSize = files.reduce((acc, f) => acc + f.size, 0);
-        const estimatedChunks = calculateChunksTotal(estimatedSize);
-        
-        const initResponse = await fetch('/api/transfer/init', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            filename,
-            totalSize: estimatedSize,
-            chunksTotal: estimatedChunks,
-            expirationDays,
-            isZip: true,
-          }),
-        });
-
-        if (!initResponse.ok) {
-          throw new Error('Failed to initialize transfer');
-        }
-
-        const { transferId, shareUrl, expiresAt: expires } = 
-          await initResponse.json() as InitTransferResponse;
-
-        setExpiresAt(expires);
-        setState(prev => ({
-          ...prev,
-          transferId,
-          shareUrl,
-        }));
-
-        saveTransferToHistory({
-          transferId,
-          shareUrl,
-          filename,
-          expiresAt: expires,
-          status: 'uploading',
-        });
-
-        const zipBlob = await zipPromise;
-        const totalSize = zipBlob.size;
-
-        setState(prev => ({
-          ...prev,
-          phase: 'uploading',
-          filename,
-          totalSize,
-          uploadedSize: 0,
-          progress: 0,
-          startTime: Date.now(),
-        }));
-
-        await uploadChunked({
-          file: zipBlob,
-          transferId,
-          onProgress: (progress) => {
-            setState(prev => ({
-              ...prev,
-              uploadedSize: progress.uploadedBytes,
-              progress: progress.progress,
-              eta: progress.eta,
-            }));
-          },
-          onComplete: () => {
-            setState(prev => ({
-              ...prev,
-              phase: 'complete',
-              progress: 100,
-            }));
-            
-            if (transferId) {
-              updateTransferStatus(transferId, 'ready');
-            }
-          },
-          onError: (error) => {
-            setState(prev => ({
-              ...prev,
-              phase: 'error',
-              error: error.message,
-            }));
-          },
-        });
-      } else {
-        // <10 individual files: Upload directly without ZIP
-        const displayName = fileCount === 1 ? files[0].name : `${fileCount} files`;
-        const totalSize = files.reduce((acc, f) => acc + f.size, 0);
-        
-        setState(prev => ({
-          ...prev,
-          phase: 'uploading',
-          filename: displayName,
-          totalSize,
-          uploadedSize: 0,
-          progress: 0,
-          startTime: Date.now(),
-        }));
-
-        const initResponse = await fetch('/api/transfer/init', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            filename: displayName,
-            totalSize,
-            chunksTotal: fileCount,
-            expirationDays,
-            isZip: false,
-            files: files.map((f, i) => ({
-              name: f.name,
-              size: f.size,
-              type: f.type,
-              path: paths[i],
-            })),
-          }),
-        });
-
-        if (!initResponse.ok) {
-          throw new Error('Failed to initialize transfer');
-        }
-
-        const { transferId, shareUrl, expiresAt: expires } = 
-          await initResponse.json() as InitTransferResponse;
-
-        setExpiresAt(expires);
-        setState(prev => ({
-          ...prev,
-          transferId,
-          shareUrl,
-        }));
-
-        saveTransferToHistory({
-          transferId,
-          shareUrl,
-          filename: displayName,
-          expiresAt: expires,
-          status: 'uploading',
-        });
-
-        // Upload files directly
-        let uploaded = 0;
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('filename', `file_${i}_${Date.now()}`);
-          formData.append('originalFilename', paths[i] || file.name);
-
-          const uploadResponse = await fetch(`/api/transfer/${transferId}/file`, {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!uploadResponse.ok) {
-            throw new Error(`Failed to upload file: ${file.name}`);
-          }
-
-          uploaded++;
-          setState(prev => ({
-            ...prev,
-            uploadedSize: files.slice(0, uploaded).reduce((acc, f) => acc + f.size, 0),
-            progress: Math.round((uploaded / files.length) * 100),
-          }));
-        }
-
-        // Mark as complete
-        await fetch(`/api/transfer/${transferId}/complete`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isZip: false }),
-        });
-
-        setState(prev => ({
-          ...prev,
-          phase: 'complete',
-          progress: 100,
-        }));
-
-        if (transferId) {
-          updateTransferStatus(transferId, 'ready');
-        }
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null);
+        throw new Error(detail?.error || 'Could not start the transfer');
       }
 
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        phase: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      const init = (await response.json()) as InitTransferResponse;
+
+      setExpiresAt(init.expiresAt);
+      setState((previous) => ({
+        ...previous,
+        phase: 'uploading',
+        transferId: init.transferId,
+        shareUrl: init.shareUrl,
+        filename: init.files.length === 1 ? init.files[0].path : `${init.files.length} files`,
+        totalSize: init.totalSize,
       }));
+
+      saveTransferToHistory({
+        transferId: init.transferId,
+        shareUrl: init.shareUrl,
+        filename: init.files.length === 1 ? init.files[0].path : `${init.files.length} files`,
+        expiresAt: init.expiresAt,
+        status: 'uploading',
+        ownerToken: init.ownerToken,
+        size: init.totalSize,
+        fileCount: init.files.length,
+      });
+
+      await uploadFiles({
+        transferId: init.transferId,
+        chunkSize: init.chunkSize,
+        plan: init.files,
+        blobs: files,
+        signal: controller.signal,
+        onProgress: (progress) =>
+          setState((previous) => ({
+            ...previous,
+            uploadedSize: progress.uploadedBytes,
+            progress: progress.progress,
+            speed: progress.speed,
+            eta: progress.eta,
+            currentFile: progress.currentFile,
+          })),
+      });
+
+      setState((previous) => ({ ...previous, phase: 'finishing', progress: 100 }));
+      await finishTransfer(init.transferId, controller.signal);
+
+      setState((previous) => ({ ...previous, phase: 'complete', progress: 100, eta: null }));
+      updateTransferStatus(init.transferId, 'ready');
+    } catch (error) {
+      if (error instanceof UploadAbortedError || controller.signal.aborted) {
+        setState(initialState);
+        setExpiresAt(null);
+        return;
+      }
+
+      setState((previous) => ({
+        ...previous,
+        phase: 'error',
+        error: error instanceof Error ? error.message : 'Something went wrong',
+      }));
+    } finally {
+      abortRef.current = null;
     }
   }, []);
+
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+
+    // The half uploaded payload is dropped straight away instead of waiting
+    // for the retention sweep to notice it.
+    const transferId = state.transferId;
+    if (transferId) {
+      const ownerToken = getOwnerToken(transferId);
+      fetch(`/api/transfer/${transferId}`, {
+        method: 'DELETE',
+        headers: ownerToken ? { 'X-Owner-Token': ownerToken } : undefined,
+      }).catch(() => undefined);
+      removeTransferFromHistory(transferId);
+    }
+
+    setState(initialState);
+    setExpiresAt(null);
+  }, [state.transferId]);
 
   const handleReset = () => {
     setState(initialState);
@@ -265,59 +182,52 @@ export default function HomePage() {
   };
 
   const showDropZone = state.phase === 'idle';
-  const showProgress = state.phase === 'zipping' || state.phase === 'uploading';
   const showShareLink = state.shareUrl !== null;
-  const isComplete = state.phase === 'complete';
 
   return (
     <main className="min-h-screen flex flex-col font-body">
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-        {/* Logo */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-12">
         <div className="mb-8">
           <Logo size="lg" showTagline />
         </div>
-        
-        {/* Subtitle */}
+
         {showDropZone && (
           <div className="text-center mb-8 animate-fade-in">
             <p className="text-sm text-white/40 max-w-sm mx-auto">
-              Share files up to 5GB. No signup. Links expire in 3-7 days.
+              Share up to 5GB. No signup. Folders keep their structure. Links expire in 3–7 days.
             </p>
           </div>
         )}
-        
+
         <div className="w-full space-y-4">
           {showDropZone && (
-            <DropZone 
-              onFilesSelected={handleFilesSelected}
-              disabled={state.phase !== 'idle'}
-            />
+            <DropZone onFilesSelected={handleFilesSelected} disabled={state.phase !== 'idle'} />
           )}
-          
+
           {showShareLink && (
-            <ShareLink 
-              shareUrl={state.shareUrl!} 
+            <ShareLink
+              shareUrl={state.shareUrl!}
               expiresAt={expiresAt || undefined}
-              isUploading={showProgress}
+              isUploading={isBusy}
             />
           )}
-          
-          {showProgress && (
-            <UploadProgress state={state} />
+
+          {(isBusy || state.phase === 'error' || state.phase === 'complete') && (
+            <UploadProgress state={state} onCancel={isBusy ? handleCancel : undefined} />
           )}
-          
-          {isComplete && (
-            <div className="flex justify-center mt-4">
+
+          {(state.phase === 'complete' || state.phase === 'error') && (
+            <div className="flex justify-center">
               <button
                 onClick={handleReset}
-                className="text-xs text-white/30 hover:text-white/60 transition-colors"
+                className="text-xs text-white/30 hover:text-white/60 transition-colors px-4 py-2"
               >
-                Transfer another
+                {state.phase === 'error' ? 'Start over' : 'Transfer another'}
               </button>
             </div>
           )}
         </div>
-        
+
         {showDropZone && (
           <>
             <Stats />

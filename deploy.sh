@@ -70,12 +70,14 @@ npm install
 cd frontend && npm install && npm run build && cd ..
 cd backend && bun install && cd ..
 
-# Create directories
-mkdir -p /var/www/we/backend/uploads
-mkdir -p /var/www/we/backend/data
+# Create directories. These paths are handed to the backend explicitly via
+# UPLOADS_DIR / DATA_DIR below, so payloads never depend on the working
+# directory the process happens to start in.
+mkdir -p /var/www/we/uploads
+mkdir -p /var/www/we/data
 mkdir -p /var/www/we/logs
-chmod 755 /var/www/we/backend/uploads
-chmod 755 /var/www/we/backend/data
+chmod 700 /var/www/we/uploads
+chmod 700 /var/www/we/data
 
 # Create .env if not exists
 if [ ! -f "/var/www/we/.env" ]; then
@@ -83,15 +85,29 @@ if [ ! -f "/var/www/we/.env" ]; then
 NODE_ENV=production
 PORT=3001
 DOMAIN=we.pablogfx.com
+UPLOADS_DIR=/var/www/we/uploads
+DATA_DIR=/var/www/we/data
+ALLOWED_ORIGINS=https://we.pablogfx.com
 EOF
 fi
 
 # Configure Nginx
+#
+# Only written when the site does not exist yet. A live deployment has an
+# HTTPS config with the certbot directives in it, and blindly overwriting that
+# with this plain-HTTP template takes the site down until certbot runs again.
+if [ -f /etc/nginx/sites-available/we.pablogfx.com ]; then
+    echo -e "${YELLOW}Nginx config already exists, leaving it untouched.${NC}"
+    echo -e "${YELLOW}Delete it first if you really want it regenerated.${NC}"
+else
 echo -e "${YELLOW}Configuring Nginx...${NC}"
 cat > /etc/nginx/sites-available/we.pablogfx.com << 'EOF'
 server {
     listen 80;
     server_name we.pablogfx.com;
+
+    # Uploads arrive as 5MB chunks, never as one huge body.
+    client_max_body_size 32M;
 
     # Frontend
     location / {
@@ -114,7 +130,21 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        client_max_body_size 5G;
+
+        client_max_body_size 32M;
+
+        # Downloads are produced as a stream (a multi gigabyte ZIP is never
+        # materialised on disk). Buffering here would make nginx spool the
+        # whole archive before the first byte reaches the browser.
+        proxy_buffering off;
+        proxy_request_buffering off;
+
+        # A 5GB transfer over a slow line takes a while in both directions.
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        send_timeout 3600s;
+
+        gzip off;
     }
 
     # WebSocket
@@ -127,13 +157,18 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Progress sockets stay open for the whole upload.
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
     }
 }
 EOF
 
+fi
+
 # Enable site
 ln -sf /etc/nginx/sites-available/we.pablogfx.com /etc/nginx/sites-enabled/
-rm -f /etc/nginx/sites-enabled/default
 
 # Test Nginx
 nginx -t
@@ -164,6 +199,9 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
+        UPLOADS_DIR: '/var/www/we/uploads',
+        DATA_DIR: '/var/www/we/data',
+        ALLOWED_ORIGINS: 'https://we.pablogfx.com',
         PATH: '/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
       },
       error_file: '/var/www/we/logs/backend-error.log',

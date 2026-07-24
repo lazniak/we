@@ -65,8 +65,10 @@ const extensionToType: Record<string, string> = {
 
 // Get icon type from filename or mime type
 function getIconType(filename: string, mimeType?: string): string {
+  if (mimeType === 'inode/directory') return 'folder';
+
   const ext = getExtension(filename);
-  
+
   if (extensionToType[ext]) {
     return extensionToType[ext];
   }
@@ -216,6 +218,12 @@ const icons: Record<string, (color: string) => React.ReactNode> = {
     </svg>
   ),
   
+  folder: (color) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+    </svg>
+  ),
+
   file: (color) => (
     <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -241,6 +249,7 @@ const typeColors: Record<string, string> = {
   '3d': 'rgba(255,255,255,0.4)',
   executable: 'rgba(255,255,255,0.35)',
   database: 'rgba(255,255,255,0.4)',
+  folder: 'rgba(96,165,250,0.75)',
   file: 'rgba(255,255,255,0.3)',
 };
 
@@ -276,18 +285,34 @@ export function FileIcon({ filename, mimeType, size = 'md', className = '' }: Fi
   );
 }
 
-// Export helper to check if file is an image
+/*
+ * Preview helpers. These deliberately mirror the server's inline allow-list:
+ * the backend refuses to render anything else, so listing an extension here
+ * that it will not serve would only produce a broken preview.
+ */
+const PREVIEW_IMAGE = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp', 'ico', 'tif', 'tiff'];
+const PREVIEW_VIDEO = ['mp4', 'm4v', 'webm', 'ogv', 'mov'];
+const PREVIEW_AUDIO = ['mp3', 'wav', 'ogg', 'oga', 'flac', 'aac', 'm4a', 'opus'];
+const PREVIEW_TEXT = ['txt', 'md', 'log', 'csv', 'json', 'yml', 'yaml', 'ini'];
+
 export function isImageFile(filename: string, mimeType?: string): boolean {
-  const ext = getExtension(filename);
-  const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'tif'];
-  return imageExts.includes(ext) || (mimeType?.startsWith('image/') || false);
+  return PREVIEW_IMAGE.includes(getExtension(filename)) || !!mimeType?.startsWith('image/');
 }
 
-// Export helper to check if file is a video
 export function isVideoFile(filename: string, mimeType?: string): boolean {
-  const ext = getExtension(filename);
-  const videoExts = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v', '3gp'];
-  return videoExts.includes(ext) || (mimeType?.startsWith('video/') || false);
+  return PREVIEW_VIDEO.includes(getExtension(filename)) || !!mimeType?.startsWith('video/');
+}
+
+export function isAudioFile(filename: string, mimeType?: string): boolean {
+  return PREVIEW_AUDIO.includes(getExtension(filename)) || !!mimeType?.startsWith('audio/');
+}
+
+export function isPdfFile(filename: string): boolean {
+  return getExtension(filename) === 'pdf';
+}
+
+export function isTextFile(filename: string): boolean {
+  return PREVIEW_TEXT.includes(getExtension(filename));
 }
 
 export default FileIcon;

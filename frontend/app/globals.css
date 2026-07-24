@@ -327,6 +327,16 @@ body::before {
     inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
+/* Scrollable strips that should not show a bar (breadcrumbs) */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Custom scrollbar - Enhanced */
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;

@@ -1,135 +1,124 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Download, Loader2, Clock, FileArchive, AlertCircle } from 'lucide-react';
-import clsx from 'clsx';
-import { formatBytes, formatEta } from '@/lib/format';
+import { AlertCircle, Clock, Download, FileArchive, Loader2 } from 'lucide-react';
+import { api, triggerDownload } from '@/lib/api';
+import { formatBytes, formatEta, formatRemaining } from '@/lib/format';
 import { TransferWebSocket } from '@/lib/websocket';
-import FilePreview from '@/components/FilePreview';
+import FileBrowser from '@/components/FileBrowser';
 import Logo from '@/components/Logo';
-import type { TransferInfo, ProgressUpdate } from '@/lib/types';
+import type { ProgressUpdate, TransferInfo } from '@/lib/types';
 
 type PageStatus = 'loading' | 'uploading' | 'ready' | 'expired' | 'not_found' | 'error';
 
 export default function TransferPage() {
   const params = useParams();
-  const transferId = params.transferId as string;
-  
+  const transferId = String(params.transferId ?? '');
+
   const [status, setStatus] = useState<PageStatus>('loading');
   const [transfer, setTransfer] = useState<TransferInfo | null>(null);
   const [progress, setProgress] = useState(0);
   const [eta, setEta] = useState<number | null>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [hoveredMedia, setHoveredMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
-  
-  const fetchTransfer = useCallback(async () => {
+  const [backdrop, setBackdrop] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+
+  // Kept in a ref so the polling effect does not restart on every update.
+  const statusRef = useRef<PageStatus>('loading');
+  statusRef.current = status;
+
+  const fetchTransfer = useCallback(async (): Promise<TransferInfo | null> => {
     try {
-      const res = await fetch(`/api/transfer/${transferId}`);
-      
+      const res = await fetch(api.info(transferId), { cache: 'no-store' });
+
       if (res.status === 404) {
         setStatus('not_found');
         return null;
       }
-      
+      if (res.status === 410) {
+        setStatus('expired');
+        return null;
+      }
       if (!res.ok) {
         setStatus('error');
         return null;
       }
-      
-      const data: TransferInfo = await res.json();
+
+      const data = (await res.json()) as TransferInfo;
       setTransfer(data);
-      setProgress(data.progress || 0);
-      
-      if (data.status === 'expired') {
-        setStatus('expired');
-      } else if (data.status === 'ready') {
-        setStatus('ready');
-      } else if (data.status === 'uploading' || data.status === 'pending') {
-        setStatus('uploading');
-      }
-      
+      setProgress(data.progress ?? 0);
+
+      if (data.status === 'ready') setStatus('ready');
+      else if (data.status === 'expired') setStatus('expired');
+      else setStatus('uploading');
+
       return data;
-    } catch (err) {
-      console.error('Failed to fetch transfer:', err);
+    } catch {
       setStatus('error');
       return null;
     }
   }, [transferId]);
-  
+
   useEffect(() => {
-    fetchTransfer();
+    void fetchTransfer();
   }, [fetchTransfer]);
-  
+
+  // Live progress for whoever opens the link while the sender is still going.
   useEffect(() => {
     if (status !== 'uploading') return;
-    
-    const ws = new TransferWebSocket(transferId);
-    
-    const unsubscribe = ws.subscribe((update: ProgressUpdate) => {
+
+    const socket = new TransferWebSocket(transferId);
+
+    const unsubscribe = socket.subscribe((update: ProgressUpdate) => {
       if (update.type === 'progress') {
-        setProgress(update.progress || 0);
-        setEta(update.eta || null);
-        if (update.uploadedSize && transfer) {
-          setTransfer(prev => prev ? { ...prev, uploaded_size: update.uploadedSize! } : null);
-        }
+        setProgress(update.progress ?? 0);
+        setEta(update.eta ?? null);
+        setTransfer((previous) =>
+          previous
+            ? {
+                ...previous,
+                uploaded_size: update.uploadedSize ?? previous.uploaded_size,
+                total_size: update.totalSize ?? previous.total_size,
+              }
+            : previous,
+        );
       } else if (update.type === 'complete') {
-        setStatus('ready');
         setProgress(100);
-        fetchTransfer();
+        void fetchTransfer();
       }
     });
-    
-    ws.connect();
-    const pollInterval = setInterval(fetchTransfer, 3000);
-    
+
+    socket.connect();
+
+    // Polling is the safety net for when the websocket cannot get through.
+    const poll = setInterval(() => {
+      if (statusRef.current === 'uploading') void fetchTransfer();
+    }, 4000);
+
     return () => {
       unsubscribe();
-      ws.disconnect();
-      clearInterval(pollInterval);
+      socket.disconnect();
+      clearInterval(poll);
     };
-  }, [status, transferId, fetchTransfer, transfer]);
-  
-  const handleDownload = async (fileId?: number) => {
-    if (!transfer || status !== 'ready') return;
-    setIsDownloading(true);
-    try {
-      if (fileId !== undefined) {
-        // Download specific file
-        window.location.href = `/api/transfer/${transferId}/download?fileId=${fileId}`;
-      } else {
-        // Download all (ZIP)
-        window.location.href = `/api/transfer/${transferId}/download`;
-      }
-    } catch (err) {
-      console.error('Download failed:', err);
-    } finally {
-      setTimeout(() => setIsDownloading(false), 2000);
-    }
-  };
-  
-  const formatExpiry = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = date.getTime() - now.getTime();
-    const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
-    
-    if (diffHours <= 0) return 'Expired';
-    if (diffHours < 24) return `${diffHours}h left`;
-    const diffDays = Math.ceil(diffHours / 24);
-    return `${diffDays}d left`;
-  };
-  
+  }, [status, transferId, fetchTransfer]);
+
+  const entries = transfer?.entries ?? [];
+  const hasBrowser = entries.length > 0;
+
+  const downloadLabel = useMemo(() => {
+    if (!transfer) return 'Download';
+    if (transfer.isSingleFile) return `Download (${formatBytes(transfer.total_size)})`;
+    return `Download all (${formatBytes(transfer.total_size)})`;
+  }, [transfer]);
+
   return (
     <main className="min-h-screen flex flex-col font-body relative overflow-hidden">
-      {/* Full-page background media preview */}
-      {hoveredMedia && (
+      {backdrop && (
         <>
-          {hoveredMedia.type === 'image' ? (
-            <div 
+          {backdrop.type === 'image' ? (
+            <div
               className="fixed inset-0 z-0 transition-opacity duration-500"
               style={{
-                backgroundImage: `url(${hoveredMedia.url})`,
+                backgroundImage: `url(${backdrop.url})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 opacity: 0.1,
@@ -137,7 +126,7 @@ export default function TransferPage() {
             />
           ) : (
             <video
-              src={hoveredMedia.url}
+              src={backdrop.url}
               className="fixed inset-0 z-0 w-full h-full object-cover opacity-[0.12]"
               autoPlay
               loop
@@ -148,187 +137,42 @@ export default function TransferPage() {
           <div className="fixed inset-0 z-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60" />
         </>
       )}
-      
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-12">
-        {/* Logo */}
+
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-12">
         <a href="/" className="mb-8 hover:opacity-80 transition-opacity">
           <Logo size="md" />
         </a>
-        
-        <div className="w-full max-w-md">
-          
-          {/* Loading */}
+
+        <div className={hasBrowser ? 'w-full max-w-2xl' : 'w-full max-w-md'}>
           {status === 'loading' && (
             <div className="text-center animate-fade-in">
               <Loader2 className="w-8 h-8 text-white/30 animate-spin mx-auto mb-4" />
-              <p className="text-sm text-white/40">Loading...</p>
+              <p className="text-sm text-white/40">Loading…</p>
             </div>
           )}
-          
-          {/* Not Found */}
+
           {status === 'not_found' && (
-            <div className="text-center animate-fade-in">
-              <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-5">
-                <AlertCircle className="w-6 h-6 text-white/30" />
-              </div>
-              <h1 className="text-lg font-medium text-white/80 mb-2">Not found</h1>
-              <p className="text-sm text-white/40 mb-6">This transfer doesn't exist or has been deleted.</p>
-              <a href="/" className="text-xs text-accent-light hover:text-accent transition-colors">
-                Create new transfer
-              </a>
-            </div>
+            <Notice
+              icon={<AlertCircle className="w-6 h-6 text-white/30" />}
+              title="Not found"
+              body="This transfer doesn't exist, has been deleted, or already expired."
+            />
           )}
-          
-          {/* Expired */}
+
           {status === 'expired' && (
-            <div className="text-center animate-fade-in">
-              <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-5">
-                <Clock className="w-6 h-6 text-white/30" />
-              </div>
-              <h1 className="text-lg font-medium text-white/80 mb-2">Expired</h1>
-              <p className="text-sm text-white/40 mb-6">This transfer has expired.</p>
-              <a href="/" className="text-xs text-accent-light hover:text-accent transition-colors">
-                Create new transfer
-              </a>
-            </div>
+            <Notice
+              icon={<Clock className="w-6 h-6 text-white/30" />}
+              title="Expired"
+              body="This transfer has expired and the files were permanently deleted."
+            />
           )}
-          
-          {/* Uploading */}
-          {status === 'uploading' && transfer && (
-            <div className="glass rounded-2xl p-6 animate-fade-in">
-              <div className="flex justify-center mb-5">
-                <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center">
-                  <Loader2 className="w-6 h-6 text-accent-light animate-spin" />
-                </div>
-              </div>
-              
-              <div className="text-center mb-5">
-                <h1 className="text-base font-medium text-white/80 mb-1">Uploading...</h1>
-                <p className="text-xs text-white/40">Sender is uploading this file</p>
-              </div>
-              
-              <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-xl mb-5">
-                <FileArchive className="w-8 h-8 text-white/20" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white/70 truncate">{transfer.filename}</p>
-                  <p className="text-xs text-white/30">{formatBytes(transfer.total_size)}</p>
-                </div>
-              </div>
-              
-              <div className="mb-3">
-                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full progress-bar rounded-full transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-white/40">
-                  {formatBytes(transfer.uploaded_size)} / {formatBytes(transfer.total_size)}
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-white/60 font-medium">{progress}%</span>
-                  {eta !== null && <span className="text-white/30">{formatEta(eta)}</span>}
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Ready */}
-          {status === 'ready' && transfer && (
-            <div className="glass rounded-2xl p-6 animate-fade-in">
-              {/* Show file list if multiple individual files */}
-              {transfer.files && transfer.files.length > 0 ? (
-                <>
-                  {/* Header with file count */}
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-sm font-medium text-white/70">
-                      {transfer.files.length} {transfer.files.length === 1 ? 'file' : 'files'}
-                    </h2>
-                    <span className="text-xs text-white/40">{formatBytes(transfer.total_size)}</span>
-                  </div>
-                  
-                  {/* File list with previews */}
-                  <div className="space-y-1.5 mb-5 max-h-72 overflow-y-auto overflow-x-hidden pr-1 -mr-1">
-                    {transfer.files.map((file) => (
-                      <FilePreview
-                        key={file.id}
-                        file={file}
-                        transferId={transferId}
-                        onDownload={(fileId) => handleDownload(fileId)}
-                        onHover={(url, type) => setHoveredMedia(url && type ? { url, type } : null)}
-                      />
-                    ))}
-                  </div>
-                  
-                  {/* Download All button */}
-                  <button
-                    onClick={() => handleDownload()}
-                    disabled={isDownloading}
-                    className={clsx(
-                      'w-full py-3.5 rounded-xl font-medium text-sm transition-all duration-200',
-                      'btn-primary flex items-center justify-center gap-2'
-                    )}
-                  >
-                    {isDownloading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                    {isDownloading ? 'Starting...' : `Download All (${formatBytes(transfer.total_size)})`}
-                  </button>
-                </>
-              ) : (
-                <>
-                  {/* Single ZIP file display */}
-                  <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-xl mb-5">
-                    <FileArchive className="w-8 h-8 text-accent/50" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white/70 truncate">{transfer.filename}</p>
-                      <p className="text-xs text-white/30">{formatBytes(transfer.total_size)}</p>
-                    </div>
-                  </div>
-                  
-                  <button
-                    onClick={() => handleDownload()}
-                    disabled={isDownloading}
-                    className={clsx(
-                      'w-full py-3.5 rounded-xl font-medium text-sm transition-all duration-200',
-                      'btn-primary flex items-center justify-center gap-2'
-                    )}
-                  >
-                    {isDownloading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                    {isDownloading ? 'Starting...' : 'Download'}
-                  </button>
-                </>
-              )}
-              
-              <div className="mt-4 flex items-center justify-center gap-4 text-[11px] text-white/30">
-                <div className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {formatExpiry(transfer.expires_at)}
-                </div>
-                {transfer.download_count > 0 && (
-                  <span>{transfer.download_count} download{transfer.download_count > 1 ? 's' : ''}</span>
-                )}
-              </div>
-            </div>
-          )}
-          
-          {/* Error */}
+
           {status === 'error' && (
             <div className="text-center animate-fade-in">
               <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-5">
                 <AlertCircle className="w-6 h-6 text-red-400/60" />
               </div>
-              <h1 className="text-lg font-medium text-white/80 mb-2">Error</h1>
-              <p className="text-sm text-white/40 mb-6">Something went wrong.</p>
+              <h1 className="text-lg font-medium text-white/80 mb-2">Something went wrong</h1>
               <button
                 onClick={() => window.location.reload()}
                 className="text-xs text-accent-light hover:text-accent transition-colors"
@@ -337,8 +181,126 @@ export default function TransferPage() {
               </button>
             </div>
           )}
+
+          {status === 'uploading' && transfer && (
+            <div className="glass rounded-2xl p-6 animate-fade-in">
+              <div className="flex justify-center mb-5">
+                <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 text-accent-light animate-spin" />
+                </div>
+              </div>
+
+              <div className="text-center mb-5">
+                <h1 className="text-base font-medium text-white/80 mb-1">Upload in progress</h1>
+                <p className="text-xs text-white/40">
+                  The sender is still uploading. This page updates by itself.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-xl mb-5">
+                <FileArchive className="w-8 h-8 text-white/20 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white/70 truncate">{transfer.filename}</p>
+                  <p className="text-xs text-white/30">{formatBytes(transfer.total_size)}</p>
+                </div>
+              </div>
+
+              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden mb-3">
+                <div
+                  className="h-full progress-bar rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-white/40">
+                  {formatBytes(transfer.uploaded_size)} / {formatBytes(transfer.total_size)}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-white/60 font-medium tabular-nums">{progress}%</span>
+                  {eta !== null && <span className="text-white/30">{formatEta(eta)}</span>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {status === 'ready' && transfer && (
+            <div className="glass rounded-2xl p-4 sm:p-6 animate-fade-in">
+              <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                <div className="min-w-0">
+                  <h1 className="text-sm font-medium text-white/80 truncate">
+                    {transfer.filename}
+                  </h1>
+                  <p className="text-xs text-white/35">
+                    {transfer.fileCount} {transfer.fileCount === 1 ? 'file' : 'files'} ·{' '}
+                    {formatBytes(transfer.total_size)}
+                  </p>
+                </div>
+              </div>
+
+              {hasBrowser ? (
+                <FileBrowser
+                  transferId={transferId}
+                  entries={entries}
+                  onHoverMedia={(url, type) => setBackdrop(url && type ? { url, type } : null)}
+                />
+              ) : (
+                <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-xl mb-5">
+                  <FileArchive className="w-8 h-8 text-accent/50 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white/70 truncate">{transfer.filename}</p>
+                    <p className="text-xs text-white/30">{formatBytes(transfer.total_size)}</p>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => triggerDownload(api.downloadAll(transferId))}
+                className="mt-4 w-full py-3.5 rounded-xl font-medium text-sm btn-primary flex items-center justify-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                {downloadLabel}
+              </button>
+
+              <div className="mt-4 flex items-center justify-center gap-4 text-[11px] text-white/30 flex-wrap">
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {formatRemaining(transfer.expires_at)}
+                </span>
+                {transfer.download_count > 0 && (
+                  <span>
+                    {transfer.download_count} download{transfer.download_count > 1 ? 's' : ''}
+                  </span>
+                )}
+                {!transfer.isSingleFile && <span>packed as ZIP on download</span>}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </main>
+  );
+}
+
+function Notice({
+  icon,
+  title,
+  body,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="text-center animate-fade-in">
+      <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-5">
+        {icon}
+      </div>
+      <h1 className="text-lg font-medium text-white/80 mb-2">{title}</h1>
+      <p className="text-sm text-white/40 mb-6">{body}</p>
+      <a href="/" className="text-xs text-accent-light hover:text-accent transition-colors">
+        Create a new transfer
+      </a>
+    </div>
   );
 }

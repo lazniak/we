@@ -4,39 +4,49 @@ interface WSData {
   transferId: string;
 }
 
-// Store active WebSocket connections by transferId
+/** Active progress subscribers, keyed by transfer id. */
 export const clients = new Map<string, Set<ServerWebSocket<WSData>>>();
+
+const MAX_CLIENTS_PER_TRANSFER = 50;
+const MAX_TOTAL_CLIENTS = 2000;
+
+let totalClients = 0;
 
 export function setupWebSocket(clientsMap: Map<string, Set<ServerWebSocket<WSData>>>) {
   return {
     open(ws: ServerWebSocket<WSData>) {
       const { transferId } = ws.data;
-      console.log(`🔌 WebSocket connected for transfer: ${transferId}`);
-      
-      if (!clientsMap.has(transferId)) {
-        clientsMap.set(transferId, new Set());
+
+      if (totalClients >= MAX_TOTAL_CLIENTS) {
+        ws.close(1013, 'Too many connections');
+        return;
       }
-      clientsMap.get(transferId)!.add(ws);
+
+      let set = clientsMap.get(transferId);
+      if (!set) {
+        set = new Set();
+        clientsMap.set(transferId, set);
+      }
+      if (set.size >= MAX_CLIENTS_PER_TRANSFER) {
+        ws.close(1013, 'Too many watchers');
+        return;
+      }
+
+      set.add(ws);
+      totalClients++;
     },
-    
+
     message(ws: ServerWebSocket<WSData>, message: string | Buffer) {
-      // Handle ping/pong for keep-alive
-      if (message === 'ping') {
-        ws.send('pong');
-      }
+      if (message === 'ping') ws.send('pong');
     },
-    
+
     close(ws: ServerWebSocket<WSData>) {
       const { transferId } = ws.data;
-      console.log(`🔌 WebSocket disconnected for transfer: ${transferId}`);
-      
-      const transferClients = clientsMap.get(transferId);
-      if (transferClients) {
-        transferClients.delete(ws);
-        if (transferClients.size === 0) {
-          clientsMap.delete(transferId);
-        }
-      }
+      const set = clientsMap.get(transferId);
+      if (!set) return;
+
+      if (set.delete(ws)) totalClients = Math.max(0, totalClients - 1);
+      if (set.size === 0) clientsMap.delete(transferId);
     },
   };
 }
@@ -49,21 +59,21 @@ export interface ProgressUpdate {
   totalSize?: number;
   chunksCompleted?: number;
   chunksTotal?: number;
-  eta?: number; // milliseconds
+  eta?: number;
   status?: string;
   error?: string;
 }
 
 export function broadcastProgress(transferId: string, update: ProgressUpdate) {
-  const transferClients = clients.get(transferId);
-  if (!transferClients) return;
-  
+  const subscribers = clients.get(transferId);
+  if (!subscribers || subscribers.size === 0) return;
+
   const message = JSON.stringify(update);
-  for (const client of transferClients) {
+  for (const client of subscribers) {
     try {
       client.send(message);
-    } catch (e) {
-      console.error('Failed to send WebSocket message:', e);
+    } catch {
+      /* the close handler will clean this connection up */
     }
   }
 }

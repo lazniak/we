@@ -2,82 +2,107 @@ import type { ProgressUpdate } from './types';
 
 export type WebSocketCallback = (update: ProgressUpdate) => void;
 
+const MAX_RECONNECT_ATTEMPTS = 6;
+const PING_INTERVAL_MS = 25_000;
+
 export class TransferWebSocket {
   private ws: WebSocket | null = null;
-  private transferId: string;
-  private callbacks: Set<WebSocketCallback> = new Set();
+  private readonly transferId: string;
+  private readonly callbacks = new Set<WebSocketCallback>();
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private pingInterval: NodeJS.Timeout | null = null;
-  
+  private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Set by disconnect() so the close handler stops reconnecting. */
+  private closed = false;
+
   constructor(transferId: string) {
     this.transferId = transferId;
   }
-  
+
   connect(): void {
-    if (this.ws?.readyState === WebSocket.OPEN) return;
-    
+    if (this.closed) return;
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = process.env.NODE_ENV === 'production' 
-      ? window.location.host 
-      : 'localhost:3001';
-    
-    this.ws = new WebSocket(`${protocol}//${host}/ws/${this.transferId}`);
-    
-    this.ws.onopen = () => {
-      console.log('WebSocket connected');
+    const host =
+      process.env.NODE_ENV === 'production' ? window.location.host : 'localhost:3001';
+
+    let socket: WebSocket;
+    try {
+      socket = new WebSocket(`${protocol}//${host}/ws/${this.transferId}`);
+    } catch {
+      this.scheduleReconnect();
+      return;
+    }
+    this.ws = socket;
+
+    socket.onopen = () => {
       this.reconnectAttempts = 0;
-      
-      // Start ping interval
-      this.pingInterval = setInterval(() => {
-        if (this.ws?.readyState === WebSocket.OPEN) {
-          this.ws.send('ping');
-        }
-      }, 30000);
+      this.pingTimer = setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) socket.send('ping');
+      }, PING_INTERVAL_MS);
     };
-    
-    this.ws.onmessage = (event) => {
+
+    socket.onmessage = (event) => {
       if (event.data === 'pong') return;
-      
       try {
-        const update: ProgressUpdate = JSON.parse(event.data);
-        this.callbacks.forEach(cb => cb(update));
-      } catch (e) {
-        console.error('Failed to parse WebSocket message:', e);
+        const update = JSON.parse(event.data) as ProgressUpdate;
+        this.callbacks.forEach((cb) => cb(update));
+      } catch {
+        /* ignore malformed frames */
       }
     };
-    
-    this.ws.onclose = () => {
-      console.log('WebSocket disconnected');
-      this.cleanup();
-      
-      // Attempt reconnection
-      if (this.reconnectAttempts < this.maxReconnectAttempts) {
-        this.reconnectAttempts++;
-        setTimeout(() => this.connect(), 2000 * this.reconnectAttempts);
-      }
+
+    socket.onclose = () => {
+      this.clearTimers();
+      this.scheduleReconnect();
     };
-    
-    this.ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
+
+    socket.onerror = () => {
+      /* onclose always follows, reconnection is handled there */
     };
   }
-  
+
+  private scheduleReconnect(): void {
+    if (this.closed || this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
+
+    this.reconnectAttempts += 1;
+    const delay = Math.min(15_000, 1_000 * 2 ** (this.reconnectAttempts - 1));
+    this.reconnectTimer = setTimeout(() => this.connect(), delay);
+  }
+
   subscribe(callback: WebSocketCallback): () => void {
     this.callbacks.add(callback);
-    return () => this.callbacks.delete(callback);
+    return () => {
+      this.callbacks.delete(callback);
+    };
   }
-  
+
   disconnect(): void {
-    this.cleanup();
-    this.ws?.close();
-    this.ws = null;
+    this.closed = true;
+    this.clearTimers();
+    this.callbacks.clear();
+
+    if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.onmessage = null;
+      this.ws.onerror = null;
+      this.ws.onopen = null;
+      if (this.ws.readyState <= WebSocket.OPEN) this.ws.close();
+      this.ws = null;
+    }
   }
-  
-  private cleanup(): void {
-    if (this.pingInterval) {
-      clearInterval(this.pingInterval);
-      this.pingInterval = null;
+
+  private clearTimers(): void {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer);
+      this.pingTimer = null;
+    }
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
   }
 }
