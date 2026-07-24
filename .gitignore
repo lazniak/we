@@ -55,3 +55,6 @@ data/
 
 # Next.js auto-generated, regenerated on every build (breaks git pull on the server)
 frontend/next-env.d.ts
+
+# Ambient background loop — 3.9MB binaries, deployed to the VPS public/ out of band
+frontend/public/bg-loop.*
