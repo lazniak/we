@@ -98,7 +98,22 @@ async function createTransfer(payloads: Payload[], dirs: string[] = [], expirati
   });
   expect(complete.status).toBe(200);
 
+  // On a host with clamd the transfer passes through a brief "scanning" state
+  // before it is downloadable. Wait it out so the assertions see the final
+  // verdict rather than racing the scanner.
+  await waitUntilReady(init.transferId);
+
   return init;
+}
+
+/** Polls until the transfer leaves the scanning state. */
+async function waitUntilReady(transferId: string): Promise<string> {
+  for (let i = 0; i < 100; i++) {
+    const info = await (await fetch(`${BASE}/api/transfer/${transferId}`)).json();
+    if (info.status !== 'scanning') return info.status;
+    await Bun.sleep(100);
+  }
+  throw new Error(`transfer ${transferId} stuck scanning`);
 }
 
 beforeAll(startServer);
@@ -387,6 +402,57 @@ describe('hostile input', () => {
     expect(info.chunks_completed).toBe(2);
     expect(info.uploaded_size).toBe(data.length);
     expect(info.progress).toBe(100);
+  });
+});
+
+describe('antivirus', () => {
+  // EICAR: the industry standard harmless test signature every scanner flags.
+  const EICAR = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
+
+  async function scannerPresent(): Promise<boolean> {
+    try {
+      const probe = Bun.spawn(['clamdscan', '--version'], { stdout: 'pipe', stderr: 'pipe' });
+      return (await probe.exited) === 0;
+    } catch {
+      return false;
+    }
+  }
+
+  it('destroys a transfer whose content trips the scanner', async () => {
+    if (!(await scannerPresent())) {
+      console.log('  (skipped: no clamd on this host)');
+      return;
+    }
+
+    const res = await fetch(`${BASE}/api/transfer/init`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: [{ path: 'eicar.txt', size: EICAR.length }] }),
+    });
+    const init = (await res.json()) as { transferId: string };
+
+    await uploadFile(init.transferId, 0, text(EICAR));
+    await fetch(`${BASE}/api/transfer/${init.transferId}/complete`, { method: 'POST' });
+
+    const verdict = await waitUntilReady(init.transferId);
+    expect(verdict).toBe('infected');
+
+    // Payload is gone from disk, and downloading is refused.
+    expect(existsSync(join(uploadsDir, init.transferId))).toBe(false);
+    const download = await fetch(`${BASE}/api/transfer/${init.transferId}/download`);
+    expect(download.status).toBe(451);
+
+    const info = await (await fetch(`${BASE}/api/transfer/${init.transferId}`)).json();
+    expect(info.status).toBe('infected');
+    expect(typeof info.threatName).toBe('string');
+  });
+
+  it('lets a clean transfer straight through', async () => {
+    // createTransfer already waits for the verdict; reaching here means clean
+    // content became downloadable.
+    const init = await createTransfer([{ path: 'harmless.txt', data: text('zupełnie zwykły tekst') }]);
+    const info = await (await fetch(`${BASE}/api/transfer/${init.transferId}`)).json();
+    expect(info.status).toBe('ready');
   });
 });
 
