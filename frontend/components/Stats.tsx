@@ -36,7 +36,9 @@ export default function Stats() {
         <Metric
           icon={<ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
           label="Wysłano łącznie"
-          value={`${stats.totalTransfers} · ${stats.totalGB} GB`}
+          /* Liczone lokalnie, żeby separator dziesiętny był ten sam co
+             wszędzie indziej — serwerowe totalGB używa kropki. */
+          value={`${stats.totalTransfers} · ${formatBytes(stats.totalBytes)}`}
         />
 
         <span className="w-px h-4 bg-white/10 hidden sm:block" />
