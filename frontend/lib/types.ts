@@ -1,3 +1,18 @@
+export type PreviewKind =
+  | 'image'
+  | 'svg'
+  | 'video'
+  | 'audio'
+  | 'pdf'
+  | 'text'
+  | 'font'
+  | 'image-render'
+  | 'video-render'
+  | 'model3d'
+  | 'document'
+  | 'archive'
+  | 'medical';
+
 export interface TransferEntry {
   id: number;
   index: number;
@@ -7,7 +22,11 @@ export interface TransferEntry {
   size: number;
   isDir: boolean;
   isDangerous: boolean;
+  /** How the frontend should preview this file, decided by the backend. */
+  previewKind: PreviewKind | null;
   previewable: boolean;
+  /** Detected 360 panorama/video, to be shown in the sphere viewer. */
+  is360: boolean;
 }
 
 export interface TransferInfo {

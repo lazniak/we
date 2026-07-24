@@ -58,3 +58,6 @@ frontend/next-env.d.ts
 
 # Ambient background loop — 3.9MB binaries, deployed to the VPS public/ out of band
 frontend/public/bg-loop.*
+
+# Vendored viewer libraries (three.js, online-3d-viewer, niivue) - deployed to VPS out of band
+frontend/public/vendor/

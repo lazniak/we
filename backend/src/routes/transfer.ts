@@ -28,6 +28,7 @@ import {
   markUploading,
   recordChunk,
   refreshProgress,
+  setFile360,
   setFileCrc,
   setScanVerdict,
   type Transfer,
@@ -40,9 +41,10 @@ import {
   isValidTransferId,
   sanitizeRelativePath,
 } from '../lib/safePath';
-import { isDangerousFile, previewMime } from '../lib/fileSafety';
+import { isDangerousFile, previewKind } from '../lib/fileSafety';
 import { computeCrcFromDisk } from '../lib/fileCrc';
 import { scanFiles } from '../lib/antivirus';
+import { detect360Image, detect360Video } from '../lib/pano';
 import {
   ensureUploadsDir,
   fileSizeOrNull,
@@ -456,6 +458,17 @@ transferRoutes.post('/:id/complete', async (c) => {
 
       setFileCrc(file.id, crc, onDisk, onDisk);
       actualTotal += onDisk;
+
+      // Flag 360 panoramas/videos by their embedded tags, so the viewer opens
+      // them in the sphere. Cheap next to the CRC read that just happened.
+      if (onDisk > 0 && onDisk < 512 * 1024 * 1024) {
+        const kind = previewKind(file.rel_path);
+        if (kind === 'image' || kind === 'image-render') {
+          if (await detect360Image(path)) setFile360(file.id, true);
+        } else if (kind === 'video' || kind === 'video-render') {
+          if (await detect360Video(path)) setFile360(file.id, true);
+        }
+      }
     }
 
     if (missing.length > 0) {
@@ -512,16 +525,22 @@ transferRoutes.get('/:id', (c) => {
       : 0;
 
   const rows = transfer.status === 'ready' ? getTransferFiles(id) : [];
-  const entries = rows.map((file) => ({
-    id: file.id,
-    index: file.file_index,
-    path: file.rel_path,
-    name: basenameOf(file.rel_path),
-    size: file.is_dir ? 0 : file.size,
-    isDir: file.is_dir === 1,
-    isDangerous: file.is_dangerous === 1,
-    previewable: !file.is_dir && previewMime(file.rel_path) !== null,
-  }));
+  const entries = rows.map((file) => {
+    const kind = file.is_dir ? null : previewKind(file.rel_path);
+    return {
+      id: file.id,
+      index: file.file_index,
+      path: file.rel_path,
+      name: basenameOf(file.rel_path),
+      size: file.is_dir ? 0 : file.size,
+      isDir: file.is_dir === 1,
+      isDangerous: file.is_dangerous === 1,
+      /** Preview strategy for the frontend: image, document, model3d, … */
+      previewKind: kind,
+      previewable: kind !== null,
+      is360: file.is_360 === 1,
+    };
+  });
 
   const fileEntries = entries.filter((e) => !e.isDir);
 

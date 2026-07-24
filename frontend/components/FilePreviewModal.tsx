@@ -1,11 +1,23 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Download, Loader2, X } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { ChevronLeft, ChevronRight, Download, Loader2, Rotate3d, X } from 'lucide-react';
 import { api, triggerDownload } from '@/lib/api';
 import { formatBytes } from '@/lib/format';
-import { isTabularFile, previewKindOf } from './FileIcon';
+import { isTabularFile } from './FileIcon';
 import type { TransferEntry } from '@/lib/types';
+
+/* Heavy viewers load their code (and vendor scripts) only when first opened. */
+const spinner = () => (
+  <div className="w-[min(92vw,64rem)] h-[75vh] flex items-center justify-center">
+    <Loader2 className="w-6 h-6 text-accent/60 animate-spin" />
+  </div>
+);
+const PanoViewer = dynamic(() => import('./viewers/PanoViewer'), { ssr: false, loading: spinner });
+const ModelViewer = dynamic(() => import('./viewers/ModelViewer'), { ssr: false, loading: spinner });
+const MedicalViewer = dynamic(() => import('./viewers/MedicalViewer'), { ssr: false, loading: spinner });
+const ArchiveViewer = dynamic(() => import('./viewers/ArchiveViewer'), { ssr: false, loading: spinner });
 
 interface FilePreviewModalProps {
   transferId: string;
@@ -15,10 +27,8 @@ interface FilePreviewModalProps {
   onClose: () => void;
 }
 
-/** Tekstowy podgląd jest ucinany, żeby wielki log nie zawiesił karty. */
 const TEXT_PREVIEW_BYTES = 256 * 1024;
 
-/** Minimalny parser CSV/TSV: cudzysłowy, podwojone cudzysłowy, nowe linie. */
 function parseDelimited(input: string, delimiter: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -27,21 +37,15 @@ function parseDelimited(input: string, delimiter: string): string[][] {
 
   for (let i = 0; i < input.length; i++) {
     const char = input[i];
-
     if (quoted) {
       if (char === '"') {
         if (input[i + 1] === '"') {
           field += '"';
           i++;
-        } else {
-          quoted = false;
-        }
-      } else {
-        field += char;
-      }
+        } else quoted = false;
+      } else field += char;
       continue;
     }
-
     if (char === '"') quoted = true;
     else if (char === delimiter) {
       row.push(field);
@@ -51,17 +55,70 @@ function parseDelimited(input: string, delimiter: string): string[][] {
       rows.push(row);
       row = [];
       field = '';
-    } else if (char !== '\r') {
-      field += char;
-    }
+    } else if (char !== '\r') field += char;
   }
-
   if (field || row.length > 0) {
     row.push(field);
     rows.push(row);
   }
-
   return rows.slice(0, 500);
+}
+
+/**
+ * Shows a server-rendered rendition. The type is probed with a HEAD (which
+ * triggers the conversion) and then the element streams from the cached URL,
+ * so a large remuxed video is never pulled fully into memory.
+ */
+function RenderedPreview({ transferId, entry }: { transferId: string; entry: TransferEntry }) {
+  const [state, setState] = useState<{ url: string; type: string } | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setState(null);
+    setError(false);
+    const url = api.render(transferId, entry.id);
+
+    fetch(url, { method: 'HEAD', signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        setState({ url, type: (res.headers.get('content-type') || '').split(';')[0] });
+      })
+      .catch((err) => {
+        if (err?.name !== 'AbortError') setError(true);
+      });
+
+    return () => controller.abort();
+  }, [transferId, entry.id]);
+
+  if (error) {
+    return (
+      <div className="w-[min(92vw,60rem)] h-[60vh] flex items-center justify-center text-center px-6 text-sm text-white/40">
+        Nie udało się wygenerować podglądu tego pliku. Pobierz go, aby otworzyć w oryginalnej aplikacji.
+      </div>
+    );
+  }
+  if (!state) {
+    return (
+      <div className="w-[min(92vw,60rem)] h-[60vh] flex flex-col items-center justify-center gap-2">
+        <Loader2 className="w-6 h-6 text-accent/60 animate-spin" />
+        <span className="text-xs text-white/40">Generowanie podglądu…</span>
+      </div>
+    );
+  }
+
+  if (state.type === 'application/pdf') {
+    return (
+      <iframe src={state.url} title={entry.name} className="w-[min(92vw,60rem)] h-[80vh] rounded-lg bg-white" />
+    );
+  }
+  if (state.type.startsWith('video/')) {
+    return (
+      <video src={state.url} className="max-w-full max-h-[80vh] rounded-lg shadow-2xl" controls autoPlay playsInline />
+    );
+  }
+  /* eslint-disable-next-line @next/next/no-img-element */
+  return <img src={state.url} alt={entry.name} className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl" />;
 }
 
 export default function FilePreviewModal({
@@ -74,9 +131,15 @@ export default function FilePreviewModal({
   const entry = entries[index];
   const [text, setText] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  /** Manual 360 toggle, on by default when the file is detected as spherical. */
+  const [pano, setPano] = useState(false);
 
-  const kind = entry ? previewKindOf(entry.name) : null;
-  const url = entry ? api.preview(transferId, entry.id) : '';
+  const kind = entry?.previewKind ?? null;
+  const previewUrl = entry ? api.preview(transferId, entry.id) : '';
+
+  useEffect(() => {
+    setPano(entry?.is360 ?? false);
+  }, [entry]);
 
   const goto = useCallback(
     (delta: number) => {
@@ -102,46 +165,33 @@ export default function FilePreviewModal({
 
     const controller = new AbortController();
     setLoading(true);
-
-    fetch(url, {
-      signal: controller.signal,
-      headers: { Range: `bytes=0-${TEXT_PREVIEW_BYTES - 1}` },
-    })
+    fetch(previewUrl, { signal: controller.signal, headers: { Range: `bytes=0-${TEXT_PREVIEW_BYTES - 1}` } })
       .then((res) => (res.ok ? res.text() : Promise.reject(new Error('preview failed'))))
       .then(setText)
       .catch(() => setText(null))
       .finally(() => setLoading(false));
-
     return () => controller.abort();
-  }, [entry, kind, url]);
+  }, [entry, kind, previewUrl]);
 
-  // Krój ładowany przez FontFace, żeby pokazać wzornik zamiast ikony pliku.
-  const fontFamily = useMemo(
-    () => (entry ? `preview-font-${entry.id}` : ''),
-    [entry],
-  );
-
+  const fontFamily = useMemo(() => (entry ? `preview-font-${entry.id}` : ''), [entry]);
   useEffect(() => {
     if (!entry || kind !== 'font') return;
-
     let face: FontFace | null = null;
     let cancelled = false;
-
     (async () => {
       try {
-        face = new FontFace(fontFamily, `url(${url})`);
+        face = new FontFace(fontFamily, `url(${previewUrl})`);
         await face.load();
         if (!cancelled) document.fonts.add(face);
       } catch {
-        /* uszkodzony lub nieobsługiwany krój - zostaje komunikat zastępczy */
+        /* corrupt font - the specimen just will not change */
       }
     })();
-
     return () => {
       cancelled = true;
       if (face) document.fonts.delete(face);
     };
-  }, [entry, kind, fontFamily, url]);
+  }, [entry, kind, fontFamily, previewUrl]);
 
   const table = useMemo(() => {
     if (!entry || !text || !isTabularFile(entry.name)) return null;
@@ -149,6 +199,9 @@ export default function FilePreviewModal({
   }, [entry, text]);
 
   if (!entry) return null;
+
+  const canToggle360 =
+    entry.is360 || kind === 'image' || kind === 'video' || kind === 'image-render' || kind === 'video-render';
 
   return (
     <div
@@ -170,6 +223,16 @@ export default function FilePreviewModal({
           </p>
         </div>
 
+        {canToggle360 && (
+          <button
+            onClick={() => setPano((p) => !p)}
+            className={`p-2 rounded-lg transition-colors ${pano ? 'text-accent bg-accent/10' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
+            aria-label="Przełącz widok 360°"
+            title="Widok 360°"
+          >
+            <Rotate3d className="w-4 h-4" />
+          </button>
+        )}
         <button
           onClick={() => triggerDownload(api.downloadFile(transferId, entry.id))}
           className="p-2 rounded-lg text-white/60 hover:text-accent hover:bg-white/10 transition-colors"
@@ -186,7 +249,7 @@ export default function FilePreviewModal({
         </button>
       </div>
 
-      <div className="flex-1 flex items-center justify-center min-h-0 p-4 sm:p-8">
+      <div className="flex-1 flex items-center justify-center min-h-0 p-4 sm:p-6">
         {entries.length > 1 && (
           <button
             onClick={(event) => {
@@ -200,42 +263,44 @@ export default function FilePreviewModal({
           </button>
         )}
 
-        <div
-          className="max-w-full max-h-full flex items-center justify-center"
-          onClick={(event) => event.stopPropagation()}
-        >
-          {/* SVG idzie przez <img>: tak załadowany obraz nie wykonuje skryptów. */}
-          {(kind === 'image' || kind === 'svg') && (
+        <div className="max-w-full max-h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+          {/* 360 takes over for any image/video when toggled on. */}
+          {pano && (kind === 'image' || kind === 'svg' || kind === 'video') && (
+            <PanoViewer url={previewUrl} type={kind === 'video' ? 'video' : 'image'} />
+          )}
+          {pano && (kind === 'image-render' || kind === 'video-render') && (
+            <PanoViewer
+              url={api.render(transferId, entry.id)}
+              type={kind === 'video-render' ? 'video' : 'image'}
+            />
+          )}
+
+          {!pano && (kind === 'image' || kind === 'svg') && (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={url}
-              alt={entry.name}
-              className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
-            />
+            <img src={previewUrl} alt={entry.name} className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl" />
           )}
-
-          {kind === 'video' && (
-            <video
-              src={url}
-              className="max-w-full max-h-[75vh] rounded-lg shadow-2xl"
-              controls
-              autoPlay
-              playsInline
-            />
+          {!pano && kind === 'video' && (
+            <video src={previewUrl} className="max-w-full max-h-[80vh] rounded-lg shadow-2xl" controls autoPlay playsInline />
           )}
-
           {kind === 'audio' && (
             <div className="glass rounded-2xl p-8 w-[min(90vw,28rem)]">
-              <audio src={url} className="w-full" controls autoPlay />
+              <audio src={previewUrl} className="w-full" controls autoPlay />
             </div>
           )}
-
           {kind === 'pdf' && (
-            <iframe
-              src={url}
-              title={entry.name}
-              className="w-[min(92vw,60rem)] h-[78vh] rounded-lg bg-white"
-            />
+            <iframe src={previewUrl} title={entry.name} className="w-[min(92vw,60rem)] h-[80vh] rounded-lg bg-white" />
+          )}
+
+          {!pano && (kind === 'image-render' || kind === 'video-render' || kind === 'document') && (
+            <RenderedPreview transferId={transferId} entry={entry} />
+          )}
+
+          {kind === 'model3d' && <ModelViewer url={api.asset(transferId, entry.id, entry.name)} />}
+          {kind === 'medical' && (
+            <MedicalViewer url={api.asset(transferId, entry.id, entry.name)} name={entry.name} />
+          )}
+          {kind === 'archive' && (
+            <ArchiveViewer transferId={transferId} fileId={entry.id} name={entry.name} />
           )}
 
           {kind === 'font' && (
@@ -245,13 +310,8 @@ export default function FilePreviewModal({
                 <p className="text-2xl text-white/70">ABCDEFGHIJKLMNOPQRSTUVWXYZ</p>
                 <p className="text-2xl text-white/70">abcdefghijklmnopqrstuvwxyz</p>
                 <p className="text-2xl text-white/70">0123456789 &amp;@#?!„”—</p>
-                <p className="text-base text-white/50">
-                  ĄĆĘŁŃÓŚŹŻ ąćęłńóśźż — pełny zestaw polskich znaków
-                </p>
+                <p className="text-base text-white/50">ĄĆĘŁŃÓŚŹŻ ąćęłńóśźż</p>
               </div>
-              <p className="text-[11px] text-white/25 border-t border-white/10 pt-3">
-                Podgląd kroju renderowany lokalnie w przeglądarce.
-              </p>
             </div>
           )}
 
@@ -262,16 +322,10 @@ export default function FilePreviewModal({
               ) : table ? (
                 <table className="w-full text-xs text-left border-collapse selectable">
                   <tbody>
-                    {table.map((row, rowIndex) => (
-                      <tr
-                        key={rowIndex}
-                        className={rowIndex === 0 ? 'text-accent/80 font-medium' : 'text-white/60'}
-                      >
-                        {row.map((cell, cellIndex) => (
-                          <td
-                            key={cellIndex}
-                            className="border border-white/[0.06] px-2 py-1 align-top whitespace-pre-wrap"
-                          >
+                    {table.map((row, r) => (
+                      <tr key={r} className={r === 0 ? 'text-accent/80 font-medium' : 'text-white/60'}>
+                        {row.map((cell, c) => (
+                          <td key={c} className="border border-white/[0.06] px-2 py-1 align-top whitespace-pre-wrap">
                             {cell}
                           </td>
                         ))}
@@ -283,9 +337,7 @@ export default function FilePreviewModal({
                 <pre className="text-xs text-white/70 whitespace-pre-wrap break-words selectable font-mono">
                   {text}
                   {entry.size > TEXT_PREVIEW_BYTES && (
-                    <span className="block mt-4 text-accent/60">
-                      … podgląd ucięty, pobierz plik, aby zobaczyć całość
-                    </span>
+                    <span className="block mt-4 text-accent/60">… podgląd ucięty, pobierz plik, aby zobaczyć całość</span>
                   )}
                 </pre>
               ) : (

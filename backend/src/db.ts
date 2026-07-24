@@ -67,6 +67,7 @@ export interface TransferFile {
   crc32: number | null;
   received_bytes: number;
   storage_name: string;
+  is_360: number;
 }
 
 /* --------------------------------------------------------------- schema */
@@ -168,6 +169,7 @@ export function initDb() {
   addColumn('transfer_files', 'crc32', 'INTEGER');
   addColumn('transfer_files', 'received_bytes', 'INTEGER DEFAULT 0');
   addColumn('transfer_files', 'storage_name', 'TEXT');
+  addColumn('transfer_files', 'is_360', 'INTEGER DEFAULT 0');
 
   // Backfill rows written by the previous schema.
   db.run(`UPDATE transfer_files SET rel_path = original_filename WHERE rel_path IS NULL`);
@@ -442,6 +444,10 @@ export function setFileCrc(id: number, crc: number, receivedBytes: number, size:
     size,
     id,
   ]);
+}
+
+export function setFile360(id: number, is360: boolean): void {
+  db.run('UPDATE transfer_files SET is_360 = ? WHERE id = ?', [is360 ? 1 : 0, id]);
 }
 
 export function deleteTransferFiles(transferId: string): void {

@@ -77,6 +77,34 @@ export const AV_MAX_FILE_BYTES = Number(process.env.AV_MAX_FILE_BYTES || 512 * 1
 /** Ceiling on one scan, so a pathological archive cannot stall a transfer. */
 export const AV_TIMEOUT_MS = Number(process.env.AV_TIMEOUT_MS || 5 * 60 * 1000);
 
+/* ----------------------------------------------------- preview rendering */
+
+/** At most this many document/image/video conversions run at once. */
+export const RENDER_CONCURRENCY = Number(process.env.RENDER_CONCURRENCY || 2);
+
+/** Per-conversion timeouts. */
+export const RENDER_DOC_TIMEOUT_MS = Number(process.env.RENDER_DOC_TIMEOUT_MS || 90_000);
+export const RENDER_IMAGE_TIMEOUT_MS = Number(process.env.RENDER_IMAGE_TIMEOUT_MS || 60_000);
+export const RENDER_VIDEO_TIMEOUT_MS = Number(process.env.RENDER_VIDEO_TIMEOUT_MS || 180_000);
+
+/** A document/image bigger than this is not converted (returns 413 to preview). */
+export const RENDER_MAX_INPUT_BYTES = Number(
+  process.env.RENDER_MAX_INPUT_BYTES || 300 * 1024 * 1024,
+);
+
+/** Video above this is never fully transcoded - only remuxed or postered. */
+export const RENDER_VIDEO_TRANSCODE_MAX_BYTES = Number(
+  process.env.RENDER_VIDEO_TRANSCODE_MAX_BYTES || 200 * 1024 * 1024,
+);
+
+/** Largest archive we will crack open to list its structure. */
+export const ARCHIVE_MAX_INPUT_BYTES = Number(
+  process.env.ARCHIVE_MAX_INPUT_BYTES || 2 * 1024 * 1024 * 1024,
+);
+
+/** Cap on how many entries an archive listing returns. */
+export const ARCHIVE_MAX_ENTRIES = Number(process.env.ARCHIVE_MAX_ENTRIES || 20_000);
+
 export const ALLOWED_ORIGINS = (
   process.env.ALLOWED_ORIGINS ||
   'https://we.pablogfx.com,http://localhost:3002,http://localhost:3000'

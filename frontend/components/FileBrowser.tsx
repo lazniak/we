@@ -26,7 +26,7 @@ import {
   type SortMode,
   type TreeNode,
 } from '@/lib/fileTree';
-import { FileIcon, isImageFile, isVideoFile } from './FileIcon';
+import { FileIcon } from './FileIcon';
 import FilePreviewModal from './FilePreviewModal';
 import type { TransferEntry } from '@/lib/types';
 
@@ -89,13 +89,15 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
   const hover = useCallback(
     (entry: TransferEntry | null) => {
       if (!onHoverMedia) return;
-      if (!entry || !entry.previewable) {
+      if (!entry) {
         onHoverMedia(null, null);
         return;
       }
-      if (isImageFile(entry.name)) onHoverMedia(api.preview(transferId, entry.id), 'image');
-      else if (isVideoFile(entry.name)) onHoverMedia(api.preview(transferId, entry.id), 'video');
-      else onHoverMedia(null, null);
+      if (entry.previewKind === 'image' || entry.previewKind === 'svg') {
+        onHoverMedia(api.preview(transferId, entry.id), 'image');
+      } else if (entry.previewKind === 'video' && !entry.is360) {
+        onHoverMedia(api.preview(transferId, entry.id), 'video');
+      } else onHoverMedia(null, null);
     },
     [onHoverMedia, transferId],
   );
@@ -339,15 +341,18 @@ function FolderRow({
 }
 
 function Thumb({ transferId, entry }: { transferId: string; entry: TransferEntry }) {
-  const url = entry.previewable ? api.preview(transferId, entry.id) : null;
+  // Only cheap, web-native media gets a real thumbnail. Exotic images and
+  // documents would each trigger a server-side conversion per grid cell, so
+  // they show their type icon and render only when opened.
+  const url = api.preview(transferId, entry.id);
 
-  if (url && isImageFile(entry.name)) {
+  if (entry.previewKind === 'image' || entry.previewKind === 'svg') {
     return (
       /* eslint-disable-next-line @next/next/no-img-element */
       <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
     );
   }
-  if (url && isVideoFile(entry.name)) {
+  if (entry.previewKind === 'video') {
     return <video src={url} className="w-full h-full object-cover" muted preload="metadata" />;
   }
   return (

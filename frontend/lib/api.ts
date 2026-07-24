@@ -8,6 +8,15 @@ export const api = {
     `/api/transfer/${transferId}/file/${fileId}`,
   preview: (transferId: string, fileId: number) =>
     `/api/transfer/${transferId}/preview/${fileId}`,
+  /** Server-rendered rendition: document → PDF, exotic image → PNG, … */
+  render: (transferId: string, fileId: number) =>
+    `/api/transfer/${transferId}/render/${fileId}`,
+  /** Archive structure as JSON. */
+  archive: (transferId: string, fileId: number) =>
+    `/api/transfer/${transferId}/archive/${fileId}`,
+  /** Raw bytes for an in-page viewer; name carries the extension it sniffs. */
+  asset: (transferId: string, fileId: number, name: string) =>
+    `/api/transfer/${transferId}/asset/${fileId}/${encodeURIComponent(name)}`,
 };
 
 /** Starts a browser download without navigating away from the page. */

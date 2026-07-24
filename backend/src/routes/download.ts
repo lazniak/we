@@ -21,10 +21,15 @@ import {
 import { ensureCrc } from '../lib/fileCrc';
 import {
   contentDisposition,
+  isRenderedKind,
   previewCsp,
+  previewKind,
   previewMime,
   safeDownloadMime,
 } from '../lib/fileSafety';
+import { renderPreview } from '../lib/render';
+import { listArchive } from '../lib/archive';
+import { ARCHIVE_MAX_INPUT_BYTES } from '../config';
 import {
   ancestorDirs,
   basenameOf,
@@ -276,9 +281,111 @@ async function serveSingleFile(
   );
 }
 
+/** Raw bytes for an in-page viewer (3D model, medical volume). */
+function serveAsset(
+  transfer: Transfer,
+  fileId: number,
+  rangeHeader: string | null,
+  origin: string | null,
+  headOnly: boolean,
+): Response {
+  if (!Number.isSafeInteger(fileId)) return jsonError('File not found', 404, origin);
+
+  const file = getTransferFileById(transfer.id, fileId);
+  if (!file || file.is_dir) return jsonError('File not found', 404, origin);
+
+  const kind = previewKind(file.rel_path);
+  if (kind !== 'model3d' && kind !== 'medical') return jsonError('Not a viewer asset', 415, origin);
+
+  const path = storagePath(transfer.id, file.storage_name);
+  const size = fileSizeOrNull(path);
+  if (size === null) return jsonError('File not found', 404, origin);
+
+  // Inline octet-stream: the page's own script parses it, the browser never
+  // renders it as a document.
+  return fileResponse(
+    path,
+    size,
+    'application/octet-stream',
+    contentDisposition(basenameOf(file.rel_path), true),
+    rangeHeader,
+    origin,
+    headOnly,
+    "default-src 'none'; sandbox",
+  );
+}
+
+/* ----------------------------------------------------- render / archive */
+
+/** Serves a server-rendered rendition (document → PDF, exotic image → PNG…). */
+async function serveRender(
+  transfer: Transfer,
+  fileId: number,
+  rangeHeader: string | null,
+  origin: string | null,
+  headOnly: boolean,
+): Promise<Response> {
+  if (!Number.isSafeInteger(fileId)) return jsonError('File not found', 404, origin);
+
+  const file = getTransferFileById(transfer.id, fileId);
+  if (!file || file.is_dir) return jsonError('File not found', 404, origin);
+
+  const kind = previewKind(file.rel_path);
+  if (!kind || !isRenderedKind(kind)) return jsonError('Not renderable', 415, origin);
+
+  const rendered = await renderPreview(transfer.id, file, kind);
+  if (!rendered) return jsonError('Nie udało się wygenerować podglądu', 422, origin);
+
+  const size = fileSizeOrNull(rendered.path);
+  if (size === null) return jsonError('Not renderable', 422, origin);
+
+  // PDFs render inline in the browser viewer; the rest are pictures.
+  const inlineName = `${basenameOf(file.rel_path)}.${rendered.mime === 'application/pdf' ? 'pdf' : 'png'}`;
+  const csp = rendered.mime === 'application/pdf' ? null : previewCsp(inlineName);
+
+  return fileResponse(
+    rendered.path,
+    size,
+    rendered.mime,
+    contentDisposition(inlineName, true),
+    rangeHeader,
+    origin,
+    headOnly,
+    csp,
+  );
+}
+
+/** Lists an archive's structure as JSON. Never exposes the contents. */
+async function serveArchive(
+  transfer: Transfer,
+  fileId: number,
+  origin: string | null,
+): Promise<Response> {
+  if (!Number.isSafeInteger(fileId)) return jsonError('File not found', 404, origin);
+
+  const file = getTransferFileById(transfer.id, fileId);
+  if (!file || file.is_dir) return jsonError('File not found', 404, origin);
+  if (previewKind(file.rel_path) !== 'archive') return jsonError('Not an archive', 415, origin);
+
+  const path = storagePath(transfer.id, file.storage_name);
+  const size = fileSizeOrNull(path);
+  if (size === null) return jsonError('File not found', 404, origin);
+  if (size > ARCHIVE_MAX_INPUT_BYTES) return jsonError('Archive too large to list', 413, origin);
+
+  try {
+    const listing = await listArchive(path, file.rel_path, size);
+    return new Response(JSON.stringify(listing), {
+      headers: withCommonHeaders({ 'Content-Type': 'application/json' }, origin),
+    });
+  } catch (error) {
+    console.error(`archive listing failed for ${file.rel_path}:`, error);
+    return jsonError('Nie udało się odczytać archiwum', 422, origin);
+  }
+}
+
 /* --------------------------------------------------------------- router */
 
-const ROUTE = /^\/api\/transfer\/([^/]+)\/(download|file|preview)(?:\/([^/]+))?$/;
+const ROUTE = /^\/api\/transfer\/([^/]+)\/(download|file|preview|render|archive)(?:\/([^/]+))?$/;
 
 /**
  * Returns a Response for download style requests, or null when the request
@@ -289,6 +396,21 @@ export async function handleDownloadRequest(
   url: URL,
 ): Promise<Response | null> {
   if (req.method !== 'GET' && req.method !== 'HEAD') return null;
+
+  // /asset/:fileId/:name serves raw bytes for in-page viewers (3D, medical).
+  // The trailing name is cosmetic - it lets a viewer detect the format from
+  // the URL extension, since payloads are stored under opaque names.
+  const assetMatch = /^\/api\/transfer\/([^/]+)\/asset\/(\d+)\/.+$/.exec(url.pathname);
+  if (assetMatch) {
+    const origin = req.headers.get('origin');
+    const transfer = getTransfer(assetMatch[1]);
+    if (!isValidTransferId(assetMatch[1]) || !transfer) {
+      return jsonError('Transfer not found', 404, origin);
+    }
+    if (isExpired(transfer)) return jsonError('This transfer has expired', 410, origin);
+    if (transfer.status !== 'ready') return jsonError('Transfer not ready', 425, origin);
+    return serveAsset(transfer, Number(assetMatch[2]), req.headers.get('range'), origin, req.method === 'HEAD');
+  }
 
   const match = ROUTE.exec(url.pathname);
   if (!match) return null;
@@ -311,6 +433,14 @@ export async function handleDownloadRequest(
   if (transfer.status !== 'ready') return jsonError('Transfer not ready', 425, origin);
 
   const range = req.headers.get('range');
+
+  if (kind === 'render') {
+    return serveRender(transfer, Number(param), range, origin, headOnly);
+  }
+
+  if (kind === 'archive') {
+    return serveArchive(transfer, Number(param), origin);
+  }
 
   if (kind === 'file' || kind === 'preview') {
     return serveSingleFile(
