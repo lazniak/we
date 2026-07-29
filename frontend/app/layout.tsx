@@ -48,7 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pl" className={outfit.variable}>
       <body className="min-h-screen antialiased">
         <BackgroundVideo />
-        <div className="min-h-screen flex flex-col">{children}</div>
+        <div className="relative z-10 min-h-screen flex flex-col">{children}</div>
       </body>
     </html>
   );

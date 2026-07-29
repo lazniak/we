@@ -30,7 +30,7 @@ export default function BackgroundVideo() {
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none" aria-hidden="true">
+    <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none" aria-hidden="true">
       <video
         className="absolute inset-0 w-full h-full object-cover opacity-[0.5] sm:opacity-[0.6] mix-blend-screen animate-bg-drift"
         autoPlay
