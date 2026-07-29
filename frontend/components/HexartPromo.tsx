@@ -10,12 +10,13 @@ const LAST_SHOWN_KEY = 'hexart-promo-last';
 const AUTO_ROTATE_MS = 11000;
 
 /**
- * Studio promo shown next to the transfer tool - the site's actual pitch. It
- * behaves like a small ad reel: a different card on every visit, a slow
- * auto-advance that pauses the moment a visitor hovers or focuses it, and a
- * manual "show me another" control. Each card names a problem bluntly, answers
- * it in a line and links to the matching page on hexart.pl.
+ * Studio promo shown next to the transfer tool - the site's actual pitch, as a
+ * full-bleed square poster: the artwork fills the card and the copy sits on top
+ * of it, framed as a question and its answer. The whole poster is one link that
+ * opens the matching hexart.pl page in a new tab, so the transfer stays put.
  *
+ * It behaves like a small ad reel: a different card on every visit, a slow
+ * auto-advance that pauses on hover/focus, and a manual "show another" control.
  * The pick happens on the client, so the server renders nothing and there is no
  * hydration mismatch to work around.
  */
@@ -68,60 +69,67 @@ export default function HexartPromo() {
   return (
     <aside className="w-full mx-auto mt-8 animate-fade-in">
       <div
-        className="card-hover relative overflow-hidden rounded-2xl glass-accent animate-sheen hover:border-accent/40 hover:shadow-[0_18px_50px_-12px_rgba(212,175,55,0.28)]"
+        className="group/promo relative"
         onMouseEnter={() => (pausedRef.current = true)}
         onMouseLeave={() => (pausedRef.current = false)}
         onFocusCapture={() => (pausedRef.current = true)}
         onBlurCapture={() => (pausedRef.current = false)}
       >
-        <div
-          className={`transition-all duration-300 ${
-            fading ? 'opacity-0 translate-y-1' : 'opacity-100 translate-y-0'
+        <a
+          href={promo.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`card-hover relative block aspect-square w-full overflow-hidden rounded-2xl glass-accent transition-all duration-300 hover:border-accent/45 hover:shadow-[0_22px_60px_-14px_rgba(212,175,55,0.32)] ${
+            fading ? 'opacity-0' : 'opacity-100'
           }`}
         >
-          {/* Banner artwork, drifting slowly so the still frame feels like a reel */}
-          <div className="relative h-44 sm:h-56 w-full overflow-hidden border-b border-accent/10">
-            <div className="absolute inset-0 animate-kenburns">
-              <PromoArt art={promo.art} />
-            </div>
-            {/* Scrim so the kicker and button stay legible over a bright frame */}
-            <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/55 to-transparent pointer-events-none" />
-            {/* Kicker floats over the art */}
-            <div className="absolute top-3 left-4 z-10 flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-glow" />
-              <span className="text-[10px] uppercase tracking-[0.2em] text-accent/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
-                HEXART Studio · {promo.kicker}
-              </span>
-            </div>
-            <button
-              onClick={swap}
-              className="absolute top-2.5 right-2.5 z-10 p-1.5 rounded-lg text-white/50 hover:text-accent hover:bg-black/30 transition-colors"
-              aria-label="Pokaż inną informację o HEXART"
-              title="Pokaż coś innego"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
-            {/* Fade so text below sits on solid ground */}
-            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#14140f] to-transparent" />
+          {/* Full-bleed square artwork, drifting slowly so a still frame breathes */}
+          <div className="absolute inset-0 animate-kenburns">
+            <PromoArt art={promo.art} />
           </div>
 
-          {/* Copy */}
-          <div className="p-6 sm:p-7 pt-5">
-            <h3 className="font-display text-xl sm:text-2xl text-white leading-snug mb-2">
+          {/* Readability scrims: soft at the top for the kicker, deep at the
+              bottom so the question and answer stay crisp over any frame. */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/60 to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/92 via-black/55 to-transparent" />
+
+          {/* Category kicker */}
+          <div className="absolute left-5 top-5 flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse-glow" />
+            <span className="text-[10px] uppercase tracking-[0.22em] text-accent/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.85)]">
+              HEXART Studio · {promo.kicker}
+            </span>
+          </div>
+
+          {/* Copy on the poster - question, then answer, then the call to act */}
+          <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+            <h3 className="font-display text-2xl font-bold leading-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.7)] sm:text-[1.75rem]">
               {promo.title}
             </h3>
-            <p className="text-sm sm:text-base text-white/45 leading-relaxed mb-4">{promo.body}</p>
-            <a
-              href={promo.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent-light transition-colors group/cta"
-            >
+
+            <div className="my-3 h-px w-10 bg-accent/70" />
+
+            <p className="mb-6 max-w-[42ch] text-sm leading-relaxed text-white/80 drop-shadow-[0_1px_8px_rgba(0,0,0,0.7)] sm:text-base">
+              {promo.body}
+            </p>
+
+            <span className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-[#14120a] shadow-[0_8px_24px_rgba(212,175,55,0.38)] transition-transform duration-300 group-hover/promo:-translate-y-0.5">
               {promo.cta}
-              <ArrowUpRight className="w-4 h-4 group-hover/cta:translate-x-0.5 group-hover/cta:-translate-y-0.5 transition-transform" />
-            </a>
+              <ArrowUpRight className="h-4 w-4" />
+            </span>
           </div>
-        </div>
+        </a>
+
+        {/* "Show another" - a sibling of the link, never nested inside it, so its
+            click swaps the card instead of opening the promo. */}
+        <button
+          onClick={swap}
+          className="absolute right-3 top-3 z-20 rounded-lg bg-black/45 p-2 text-white/60 backdrop-blur-sm transition-colors hover:bg-black/65 hover:text-accent"
+          aria-label="Pokaż inną informację o HEXART"
+          title="Pokaż coś innego"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+        </button>
       </div>
     </aside>
   );

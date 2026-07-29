@@ -325,7 +325,7 @@ export default function TransferPage() {
         {/* Odbiorca to zwykle ktoś, kto jeszcze nie zna studia — reklama i
             wizytówka lądują pod podglądem/przeglądarką plików. */}
         {(status === 'ready' || status === 'expired' || status === 'not_found') && (
-          <div className={`w-full mx-auto ${hasBrowser ? 'max-w-4xl' : 'max-w-md'}`}>
+          <div className="w-full mx-auto max-w-xl px-4">
             <HexartPromo />
             <BusinessCard />
           </div>
