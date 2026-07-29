@@ -238,10 +238,10 @@ export default function HomePage() {
         {/* Promo studia towarzyszy też ekranowi „gotowe” — to moment,
             w którym ktoś właśnie skopiował link i ma chwilę uwagi. */}
         {(showDropZone || state.phase === 'complete') && (
-          <>
+          <div className="w-full max-w-xl mx-auto px-4">
             <HexartPromo />
             <BusinessCard />
-          </>
+          </div>
         )}
 
         {showDropZone && (

@@ -317,9 +317,9 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
     <div className="w-full max-w-xl mx-auto space-y-4 px-4">
       {/* Expiry */}
       <div className="glass rounded-2xl p-3 sm:p-4 animate-fade-in">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <span className="text-xs text-white/40 uppercase tracking-wider">Link wygasa za</span>
-          <div className="flex items-center gap-1 p-1 bg-white/[0.03] rounded-xl">
+          <div className="flex items-center gap-1 p-1 bg-white/[0.03] rounded-xl self-stretch sm:self-auto justify-between sm:justify-start">
             {[3, 4, 5, 6, 7].map((day) => (
               <button
                 key={day}

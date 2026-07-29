@@ -163,9 +163,9 @@ export default function TransferPage() {
       )}
 
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-12">
-        <a href="/" className="mb-8 hover:opacity-80 transition-opacity">
+        <div className="mb-8">
           <Logo size="md" />
-        </a>
+        </div>
 
         <div className={hasBrowser ? 'w-full max-w-4xl' : 'w-full max-w-md'}>
           {status === 'loading' && (
@@ -349,10 +349,10 @@ export default function TransferPage() {
         {/* Odbiorca to zwykle ktoś, kto jeszcze nie zna studia — reklama i
             wizytówka lądują pod podglądem/przeglądarką plików. */}
         {(status === 'ready' || status === 'expired' || status === 'not_found') && (
-          <>
+          <div className={`w-full mx-auto ${hasBrowser ? 'max-w-4xl' : 'max-w-md'}`}>
             <HexartPromo />
             <BusinessCard />
-          </>
+          </div>
         )}
       </div>
 

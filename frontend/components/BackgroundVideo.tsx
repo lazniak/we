@@ -32,7 +32,7 @@ export default function BackgroundVideo() {
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none" aria-hidden="true">
       <video
-        className="absolute inset-0 w-full h-full object-cover opacity-40 sm:opacity-[0.48] mix-blend-screen animate-bg-drift"
+        className="absolute inset-0 w-full h-full object-cover opacity-[0.5] sm:opacity-[0.6] mix-blend-screen animate-bg-drift"
         autoPlay
         loop
         muted
@@ -43,12 +43,13 @@ export default function BackgroundVideo() {
         <source src="/bg-loop.mp4" type="video/mp4" />
       </video>
 
-      {/* Pool of shade under the reading column, so copy stays legible over motion. */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_58%_46%_at_50%_44%,rgba(8,8,11,0.7),transparent_76%)]" />
-      {/* Edge vignette so the frame never reads as a hard video crop. */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_28%,#0a0a0c_94%)]" />
-      {/* Faint warm floor tying the reel to the gold palette. */}
-      <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-[#0a0a0c] to-transparent" />
+      {/* Light veil under the reading column - just enough for legible copy, not
+          enough to bury the reel. */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_46%_at_50%_40%,rgba(8,8,11,0.42),transparent_70%)]" />
+      {/* Corner vignette that starts late, so the mid-field motion stays visible. */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,transparent_58%,rgba(6,6,9,0.92)_100%)]" />
+      {/* Faint floor so the footer and stats keep their footing. */}
+      <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-[#0a0a0c] to-transparent" />
     </div>
   );
 }

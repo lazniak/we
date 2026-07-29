@@ -47,7 +47,11 @@ export default function Logo({ size = 'md', showTagline = false }: LogoProps) {
   const config = SIZES[size];
 
   return (
-    <div className="relative inline-flex flex-col items-center group">
+    <a
+      href="https://hexart.io"
+      aria-label="HEXART.io — przejdź na hexart.io"
+      className="relative inline-flex flex-col items-center group cursor-pointer"
+    >
       <div className="absolute -inset-10 bg-accent/5 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
       <div className={`relative flex items-center ${config.gap}`}>
@@ -66,6 +70,6 @@ export default function Logo({ size = 'md', showTagline = false }: LogoProps) {
           Pliki bez kombinowania
         </span>
       )}
-    </div>
+    </a>
   );
 }

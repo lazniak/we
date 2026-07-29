@@ -26,7 +26,7 @@ export default function BusinessCard() {
   }, []);
 
   return (
-    <aside className="w-full max-w-2xl mx-auto mt-3 px-4 animate-fade-in">
+    <aside className="w-full mx-auto mt-3 animate-fade-in">
       <div className="card-hover glass rounded-2xl p-4 sm:p-5 flex items-center gap-4 hover:border-accent/25 hover:shadow-[0_16px_44px_-16px_rgba(212,175,55,0.25)]">
         <div className="relative shrink-0">
           <div className="w-16 h-16 sm:w-[76px] sm:h-[76px] rounded-2xl overflow-hidden ring-1 ring-accent/30 bg-gradient-to-br from-accent/15 to-transparent flex items-center justify-center shadow-[0_0_30px_-8px_rgba(212,175,55,0.35)]">

@@ -66,7 +66,7 @@ export default function HexartPromo() {
   if (!promo) return null;
 
   return (
-    <aside className="w-full max-w-2xl mx-auto mt-8 px-4 animate-fade-in">
+    <aside className="w-full mx-auto mt-8 animate-fade-in">
       <div
         className="card-hover relative overflow-hidden rounded-2xl glass-accent animate-sheen hover:border-accent/40 hover:shadow-[0_18px_50px_-12px_rgba(212,175,55,0.28)]"
         onMouseEnter={() => (pausedRef.current = true)}
