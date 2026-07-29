@@ -139,25 +139,26 @@ export default function TransferPage() {
         <>
           {backdrop.type === 'image' ? (
             <div
-              className="fixed inset-0 z-0 transition-opacity duration-500"
+              className="fixed inset-0 z-0 transition-opacity duration-700 animate-bg-drift"
               style={{
                 backgroundImage: `url(${backdrop.url})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
-                opacity: 0.1,
+                opacity: 0.2,
               }}
             />
           ) : (
             <video
               src={backdrop.url}
-              className="fixed inset-0 z-0 w-full h-full object-cover opacity-[0.12]"
+              className="fixed inset-0 z-0 w-full h-full object-cover opacity-[0.24] animate-bg-drift"
               autoPlay
               loop
               muted
               playsInline
             />
           )}
-          <div className="fixed inset-0 z-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60" />
+          <div className="fixed inset-0 z-0 bg-[radial-gradient(ellipse_58%_50%_at_50%_45%,rgba(8,8,11,0.72),transparent_78%)]" />
+          <div className="fixed inset-0 z-0 bg-gradient-to-b from-[#0a0a0c]/70 via-transparent to-[#0a0a0c]/80" />
         </>
       )}
 

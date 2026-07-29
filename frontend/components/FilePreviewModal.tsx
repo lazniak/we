@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Download, Loader2, Rotate3d, X } from 'lucid
 import { api, triggerDownload } from '@/lib/api';
 import { formatBytes } from '@/lib/format';
 import { isTabularFile } from './FileIcon';
+import Portal from './Portal';
 import type { TransferEntry } from '@/lib/types';
 
 /* Heavy viewers load their code (and vendor scripts) only when first opened. */
@@ -204,8 +205,9 @@ export default function FilePreviewModal({
     entry.is360 || kind === 'image' || kind === 'video' || kind === 'image-render' || kind === 'video-render';
 
   return (
+    <Portal>
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-black/92 backdrop-blur-2xl animate-fade-in"
+      className="fixed inset-0 z-[60] flex flex-col bg-black/95 backdrop-blur-2xl animate-fade-in"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -367,5 +369,6 @@ export default function FilePreviewModal({
         </div>
       )}
     </div>
+    </Portal>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import TermsContent from './TermsContent';
+import Portal from './Portal';
 
 export default function TermsModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
@@ -14,8 +15,9 @@ export default function TermsModal({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   return (
+    <Portal>
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -41,5 +43,6 @@ export default function TermsModal({ onClose }: { onClose: () => void }) {
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
