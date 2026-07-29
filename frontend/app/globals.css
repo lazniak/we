@@ -99,16 +99,16 @@ body::before {
 
 .glass {
   background: var(--glass-bg);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  /* Tailwind's var-based backdrop utilities survive Turbopack/Lightning CSS
+     minification, which strips a raw `backdrop-filter: blur(...)` outright. */
+  @apply backdrop-blur-md backdrop-saturate-150;
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
 }
 
 .glass-strong {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
-  backdrop-filter: blur(32px) saturate(160%);
-  -webkit-backdrop-filter: blur(32px) saturate(160%);
+  @apply backdrop-blur-xl backdrop-saturate-150;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow:
     var(--glass-shadow),
@@ -117,8 +117,7 @@ body::before {
 
 .glass-accent {
   background: linear-gradient(135deg, rgba(212, 175, 55, 0.09), rgba(212, 175, 55, 0.03));
-  backdrop-filter: blur(28px) saturate(150%);
-  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  @apply backdrop-blur-lg backdrop-saturate-150;
   border: 1px solid rgba(212, 175, 55, 0.22);
   box-shadow: 0 8px 32px rgba(212, 175, 55, 0.1);
 }
