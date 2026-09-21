@@ -9,7 +9,9 @@ import {
   FolderArchive,
   Grid2X2,
   Home,
+  Images,
   List,
+  Play,
   Search,
   ShieldAlert,
   X,
@@ -21,7 +23,11 @@ import {
   breadcrumbsFor,
   buildTree,
   findNode,
+  flattenFiles,
+  isMediaEntry,
+  parentPath,
   searchFiles,
+  sortEntries,
   sortNodes,
   type SortMode,
   type TreeNode,
@@ -43,15 +49,31 @@ const SORTS: { id: SortMode; label: string }[] = [
   { id: 'type', label: 'Typ' },
 ];
 
+type ViewMode = 'list' | 'grid' | 'media';
+
+const VIEWS: { id: ViewMode; label: string; Icon: typeof List }[] = [
+  { id: 'list', label: 'Lista', Icon: List },
+  { id: 'grid', label: 'Siatka', Icon: Grid2X2 },
+  { id: 'media', label: 'Multimedia', Icon: Images },
+];
+
 export default function FileBrowser({ transferId, entries, onHoverMedia }: FileBrowserProps) {
   const [path, setPath] = useState('');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortMode>('name');
-  const [view, setView] = useState<'list' | 'grid'>('list');
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const tree = useMemo(() => buildTree(entries), [entries]);
+  const media = useMemo(() => entries.filter(isMediaEntry), [entries]);
+
+  // A transfer that is mostly pictures, video and audio opens as a gallery.
+  // Decided once, when the browser mounts; from then on the choice is the user's.
+  const [view, setView] = useState<ViewMode>(() =>
+    media.length >= 2 && media.length * 2 > tree.fileCount ? 'media' : 'list',
+  );
+
   const searching = query.trim().length > 0;
+  const inMedia = view === 'media' && !searching;
 
   // A folder that disappears (transfer replaced under us) must not strand the view.
   const current = useMemo(() => findNode(tree, path) ?? tree, [tree, path]);
@@ -70,13 +92,18 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
     [current, searching, sort],
   );
 
-  /** Files the preview modal can page through, in the order shown. */
+  /** The media view: every picture, video and audio file, folders flattened away. */
+  const gallery = useMemo(() => sortEntries(media, sort), [media, sort]);
+
+  /**
+   * Files the preview modal can page through. Search and the media view page
+   * through exactly what is on screen; the folder views page through the whole
+   * transfer in reading order, so the arrows carry on into the next folder.
+   */
   const previewable = useMemo(() => {
-    const source = searching
-      ? results
-      : visible.filter((node) => !node.isDir).map((node) => node.entry!);
-    return source.filter((entry) => entry?.previewable);
-  }, [results, searching, visible]);
+    const source = searching ? results : view === 'media' ? gallery : flattenFiles(tree, sort);
+    return source.filter((entry) => entry.previewable);
+  }, [gallery, results, searching, sort, tree, view]);
 
   const openPreview = useCallback(
     (entry: TransferEntry) => {
@@ -84,6 +111,20 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
       if (index >= 0) setPreviewIndex(index);
     },
     [previewable],
+  );
+
+  /**
+   * Paging in the modal drags the folder view along, so closing it lands in
+   * the folder of whatever was on screen last.
+   */
+  const changePreview = useCallback(
+    (index: number) => {
+      setPreviewIndex(index);
+      if (searching || view === 'media') return;
+      const target = previewable[index];
+      if (target) setPath(parentPath(target.path));
+    },
+    [previewable, searching, view],
   );
 
   const hover = useCallback(
@@ -107,61 +148,95 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
 
   // A handful of loose files needs no search box, no sorting and no
   // breadcrumbs - the chrome only appears once there is something to navigate.
+  // The view switcher also shows up as soon as there is a gallery to offer.
   const hasFolders = entries.some((entry) => entry.isDir);
   const showChrome = hasFolders || entries.length > 5;
+  const showViews = showChrome || media.length >= 2;
+  const views = media.length > 0 ? VIEWS : VIEWS.filter((option) => option.id !== 'media');
 
   return (
     <div className="flex flex-col min-h-0">
       {/* Toolbar */}
-      <div className={clsx('items-center gap-2 mb-3', showChrome ? 'flex' : 'hidden')}>
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25 pointer-events-none" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Szukaj plików…"
-            aria-label="Szukaj plików"
-            className="input-glass w-full rounded-xl pl-9 pr-8 py-2 text-sm placeholder:text-white/25"
-          />
-          {searching && (
-            <button
-              onClick={() => setQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-white/30 hover:text-white/70 hover:bg-white/10 transition-colors"
-              aria-label="Wyczyść wyszukiwanie"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
-        </div>
+      <div className={clsx('flex-wrap items-center gap-2 mb-3', showViews ? 'flex' : 'hidden')}>
+        {showChrome && (
+          <>
+            {/* On a phone the search box takes its own row; sorting and the
+                view switcher share the next one. */}
+            <div className="relative basis-full sm:basis-0 sm:flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25 pointer-events-none" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Szukaj plików…"
+                aria-label="Szukaj plików"
+                className="input-glass w-full rounded-xl pl-9 pr-8 py-2 text-sm placeholder:text-white/25"
+              />
+              {searching && (
+                <button
+                  onClick={() => setQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-white/30 hover:text-white/70 hover:bg-white/10 transition-colors"
+                  aria-label="Wyczyść wyszukiwanie"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
 
-        <div className="flex items-center gap-0.5 p-0.5 rounded-xl bg-white/[0.03] shrink-0">
-          {SORTS.map((option) => (
+            <div className="flex items-center gap-0.5 p-0.5 rounded-xl bg-white/[0.03] shrink-0">
+              {SORTS.map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => setSort(option.id)}
+                  className={clsx(
+                    'px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors',
+                    sort === option.id
+                      ? 'bg-white/10 text-white/90'
+                      : 'text-white/30 hover:text-white/60',
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div
+          className="ml-auto flex items-center gap-0.5 p-0.5 rounded-xl bg-white/[0.03] shrink-0"
+          role="group"
+          aria-label="Widok"
+        >
+          {views.map(({ id, label, Icon }) => (
             <button
-              key={option.id}
-              onClick={() => setSort(option.id)}
+              key={id}
+              onClick={() => setView(id)}
+              aria-label={label}
+              aria-pressed={view === id}
+              title={label}
               className={clsx(
-                'px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors',
-                sort === option.id
-                  ? 'bg-white/10 text-white/90'
-                  : 'text-white/30 hover:text-white/60',
+                'p-1.5 rounded-lg transition-colors',
+                view === id ? 'bg-white/10 text-white/90' : 'text-white/30 hover:text-white/60',
               )}
             >
-              {option.label}
+              <Icon className="w-4 h-4" />
             </button>
           ))}
         </div>
-
-        <button
-          onClick={() => setView(view === 'list' ? 'grid' : 'list')}
-          className="p-2 rounded-xl bg-white/[0.03] text-white/40 hover:text-white/80 hover:bg-white/[0.06] transition-colors shrink-0"
-          aria-label={view === 'list' ? 'Przełącz na siatkę' : 'Przełącz na listę'}
-        >
-          {view === 'list' ? <Grid2X2 className="w-4 h-4" /> : <List className="w-4 h-4" />}
-        </button>
       </div>
 
+      {/* Media view header - the icon-only switcher needs a name for what is shown. */}
+      {inMedia && (
+        <div className="flex items-center gap-1.5 mb-2 px-2 py-1 text-xs text-white/50">
+          <Images className="w-3 h-3" />
+          Multimedia z całego transferu
+          <span className="text-white/25">
+            · {gallery.length} {plural(gallery.length, 'plik', 'pliki', 'plików')}
+          </span>
+        </div>
+      )}
+
       {/* Breadcrumbs */}
-      {!searching && showChrome && (
+      {!searching && !inMedia && showChrome && (
         <div className="flex items-center gap-1 mb-2 text-xs overflow-x-auto no-scrollbar">
           <button
             onClick={() => setPath('')}
@@ -226,6 +301,23 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
               ))}
             </div>
           )
+        ) : inMedia ? (
+          gallery.length === 0 ? (
+            <EmptyState message="Brak zdjęć, wideo ani audio w tym transferze" />
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
+              {gallery.map((entry) => (
+                <MediaCell
+                  key={entry.id}
+                  transferId={transferId}
+                  entry={entry}
+                  showFolder={hasFolders}
+                  onPreview={openPreview}
+                  onHover={hover}
+                />
+              ))}
+            </div>
+          )
         ) : isEmpty ? (
           <EmptyState message="Ten katalog jest pusty" />
         ) : view === 'grid' ? (
@@ -267,7 +359,7 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
       </div>
 
       {/* Folder level download */}
-      {!searching && path && current.fileCount > 0 && (
+      {!searching && !inMedia && path && current.fileCount > 0 && (
         <button
           onClick={() => triggerDownload(api.downloadFolder(transferId, path))}
           className="mt-3 w-full py-2.5 rounded-xl text-xs font-medium text-white/60 hover:text-white bg-white/[0.03] hover:bg-white/[0.07] transition-colors flex items-center justify-center gap-2"
@@ -282,7 +374,7 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
           transferId={transferId}
           entries={previewable}
           index={Math.min(previewIndex, previewable.length - 1)}
-          onIndexChange={setPreviewIndex}
+          onIndexChange={changePreview}
           onClose={() => setPreviewIndex(null)}
         />
       )}
@@ -340,7 +432,15 @@ function FolderRow({
   );
 }
 
-function Thumb({ transferId, entry }: { transferId: string; entry: TransferEntry }) {
+function Thumb({
+  transferId,
+  entry,
+  iconSize = 'sm',
+}: {
+  transferId: string;
+  entry: TransferEntry;
+  iconSize?: 'sm' | 'lg';
+}) {
   // Only cheap, web-native media gets a real thumbnail. Exotic images and
   // documents would each trigger a server-side conversion per grid cell, so
   // they show their type icon and render only when opened.
@@ -353,11 +453,13 @@ function Thumb({ transferId, entry }: { transferId: string; entry: TransferEntry
     );
   }
   if (entry.previewKind === 'video') {
-    return <video src={url} className="w-full h-full object-cover" muted preload="metadata" />;
+    return (
+      <video src={url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+    );
   }
   return (
     <div className="w-full h-full flex items-center justify-center">
-      <FileIcon filename={entry.name} size="sm" />
+      <FileIcon filename={entry.name} size={iconSize} />
     </div>
   );
 }
@@ -497,6 +599,72 @@ function GridCell({
           <Download className="w-3.5 h-3.5" />
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * One tile of the media view: the picture fills the square, the name and
+ * folder sit on a gradient at the bottom so files pulled from different
+ * folders still tell where they came from.
+ */
+function MediaCell({
+  transferId,
+  entry,
+  showFolder,
+  onPreview,
+  onHover,
+}: {
+  transferId: string;
+  entry: TransferEntry;
+  showFolder: boolean;
+  onPreview: (entry: TransferEntry) => void;
+  onHover: (entry: TransferEntry | null) => void;
+}) {
+  const folder = showFolder ? parentPath(entry.path) : '';
+  const isVideo = entry.previewKind === 'video' || entry.previewKind === 'video-render';
+
+  const activate = () =>
+    entry.previewable ? onPreview(entry) : triggerDownload(api.downloadFile(transferId, entry.id));
+
+  return (
+    <div
+      onClick={activate}
+      onKeyDown={(event) => event.key === 'Enter' && activate()}
+      onMouseEnter={() => onHover(entry)}
+      role="button"
+      tabIndex={0}
+      title={entry.path}
+      className="group relative aspect-square rounded-xl bg-white/[0.03] border border-white/[0.04] hover:border-white/[0.16] transition-all cursor-pointer overflow-hidden"
+    >
+      <Thumb transferId={transferId} entry={entry} iconSize="lg" />
+
+      {isVideo && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span className="w-9 h-9 rounded-full bg-black/45 backdrop-blur-sm flex items-center justify-center text-white/85 group-hover:bg-accent/85 group-hover:text-black transition-colors">
+            <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+          </span>
+        </div>
+      )}
+
+      <div className="absolute inset-x-0 bottom-0 px-2 pt-6 pb-1.5 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none">
+        <p className="text-[11px] text-white/85 truncate">{entry.name}</p>
+        <p className="text-[10px] text-white/40 truncate">
+          {folder && <span className="mr-1">{folder} ·</span>}
+          {formatBytes(entry.size)}
+        </p>
+      </div>
+
+      <button
+        onClick={(event) => {
+          event.stopPropagation();
+          triggerDownload(api.downloadFile(transferId, entry.id));
+        }}
+        className="absolute top-1.5 right-1.5 w-7 h-7 rounded-lg bg-black/50 backdrop-blur-sm opacity-0 group-hover:opacity-100 focus:opacity-100 flex items-center justify-center text-white/70 hover:text-accent-light transition-all"
+        aria-label={`Pobierz ${entry.name}`}
+      >
+        <Download className="w-3.5 h-3.5" />
+      </button>
     </div>
   );
 }

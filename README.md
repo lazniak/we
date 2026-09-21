@@ -11,7 +11,10 @@ link expires.
 - **Folders keep their structure** — a dropped directory is recreated exactly, empty
   subfolders included
 - **Native file browser** — recipients browse the transfer: folders, breadcrumbs,
-  search, sorting, list/grid view, thumbnails and previews
+  search, sorting, list/grid view, thumbnails and previews. A media view gathers
+  every picture, video and audio file from all folders into one grid and is the
+  default when they make up most of the transfer; the fullscreen preview pages
+  through the whole transfer, folder after folder, with arrows, keys and swipe
 - **Pick what you need** — download the whole transfer, one folder, or a single file
 - **No pointless repacking** — a single file comes back byte for byte; only a real
   bundle is packed into a ZIP, and never twice

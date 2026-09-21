@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { ChevronLeft, ChevronRight, Download, Loader2, Rotate3d, X } from 'lucide-react';
 import { api, triggerDownload } from '@/lib/api';
@@ -160,6 +160,38 @@ export default function FilePreviewModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [goto, onClose]);
 
+  // The next picture starts downloading while this one is on screen, so the
+  // arrow feels instant when paging through a gallery.
+  useEffect(() => {
+    if (entries.length < 2) return;
+    const next = entries[(index + 1) % entries.length];
+    if (next.previewKind !== 'image' && next.previewKind !== 'svg') return;
+    const image = new Image();
+    image.src = api.preview(transferId, next.id);
+  }, [entries, index, transferId]);
+
+  // Swiping pages through plain pictures. Video controls, the 360 sphere and
+  // the 3D/medical viewers drag horizontally themselves, so they are left alone.
+  const swipeable = !pano && (kind === 'image' || kind === 'svg' || kind === 'image-render');
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (event: React.TouchEvent) => {
+    if (!swipeable || event.touches.length !== 1) {
+      touchStart.current = null;
+      return;
+    }
+    const touch = event.touches[0];
+    touchStart.current = { x: touch.clientX, y: touch.clientY };
+  };
+  const onTouchEnd = (event: React.TouchEvent) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start || event.changedTouches.length !== 1) return;
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) goto(dx < 0 ? 1 : -1);
+  };
+
   useEffect(() => {
     setText(null);
     if (!entry || kind !== 'text') return;
@@ -251,7 +283,11 @@ export default function FilePreviewModal({
         </button>
       </div>
 
-      <div className="flex-1 flex items-center justify-center min-h-0 p-4 sm:p-6">
+      <div
+        className="flex-1 flex items-center justify-center min-h-0 p-4 sm:p-6"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
         {entries.length > 1 && (
           <button
             onClick={(event) => {
