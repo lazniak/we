@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import JSZip from 'jszip';
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'fs';
+import sharp from 'sharp';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -12,6 +13,7 @@ const CHUNK_SIZE = 5 * 1024 * 1024;
 const root = mkdtempSync(join(tmpdir(), 'we-e2e-'));
 const uploadsDir = join(root, 'uploads');
 const dataDir = join(root, 'data');
+const thumbsDir = join(root, 'thumbs');
 
 let server: ReturnType<typeof Bun.spawn> | null = null;
 
@@ -23,6 +25,7 @@ async function startServer() {
       PORT: String(PORT),
       UPLOADS_DIR: uploadsDir,
       DATA_DIR: dataDir,
+      THUMB_CACHE_DIR: thumbsDir,
     },
     stdout: 'pipe',
     stderr: 'pipe',
@@ -316,6 +319,170 @@ describe('upload → download round trip', () => {
     expect(allowed.status).toBe(200);
     expect(existsSync(join(uploadsDir, transferId))).toBe(false);
     expect((await fetch(`${BASE}/api/transfer/${transferId}`)).status).toBe(404);
+  });
+});
+
+describe('thumbnails', () => {
+  const hasFfmpeg = Bun.which('ffmpeg') !== null;
+  const hasX264 =
+    hasFfmpeg && Bun.spawnSync(['ffmpeg', '-hide_banner', '-encoders']).stdout.toString().includes('libx264');
+  const mediaDir = join(root, 'media');
+  let transferId = '';
+  let ownerToken = '';
+  const ids: Record<string, number> = {};
+
+  const thumbUrl = (name: string, size?: string) =>
+    `${BASE}/api/transfer/${transferId}/thumb/${ids[name]}${size ? `?s=${size}` : ''}`;
+
+  async function picture(res: Response) {
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/webp');
+    return sharp(Buffer.from(await res.arrayBuffer())).metadata();
+  }
+
+  /** Renders a small media file with ffmpeg and returns its bytes. */
+  function ffmpeg(name: string, args: string[]): Uint8Array {
+    mkdirSync(mediaDir, { recursive: true });
+    const out = join(mediaDir, name);
+    const result = Bun.spawnSync(['ffmpeg', '-v', 'error', '-y', ...args, out]);
+    if (result.exitCode !== 0) throw new Error(`ffmpeg failed for ${name}: ${result.stderr}`);
+    return readFileSync(out);
+  }
+
+  it('makes a small square WebP of a photo', async () => {
+    // Stored landscape with EXIF orientation 6: the camera was held upright.
+    const photo = await sharp({ create: { width: 1600, height: 1000, channels: 3, background: '#c33' } })
+      .jpeg()
+      .withMetadata({ orientation: 6 })
+      .toBuffer();
+    const payloads: Payload[] = [
+      { path: 'media/photo.jpg', data: photo },
+      {
+        path: 'media/logo.svg',
+        data: text('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="12"><rect width="24" height="12" fill="#09f"/></svg>'),
+      },
+      { path: 'media/notes.txt', data: text('not a picture') },
+      // SVG under a raster name: libvips would pick its SVG file loader by
+      // content, which may resolve <image href> against the upload folder.
+      {
+        path: 'media/fake.png',
+        data: text('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><image href="photo.jpg" width="64" height="64"/></svg>'),
+      },
+    ];
+
+    if (hasFfmpeg) {
+      const cover = join(mediaDir, 'cover.png');
+      mkdirSync(mediaDir, { recursive: true });
+      await sharp({ create: { width: 300, height: 300, channels: 3, background: '#fa0' } }).png().toFile(cover);
+      payloads.push(
+        {
+          path: 'media/clip.mp4',
+          data: ffmpeg('clip.mp4', ['-f', 'lavfi', '-i', 'testsrc=duration=2:size=640x360:rate=25', '-c:v', 'mpeg4']),
+        },
+        { path: 'media/tone.wav', data: ffmpeg('tone.wav', ['-f', 'lavfi', '-i', 'sine=frequency=440:duration=1']) },
+        ...(hasX264
+          ? [{
+              path: 'media/clip.mkv',
+              data: ffmpeg('clip.mkv', [
+                '-f', 'lavfi', '-i', 'testsrc=duration=2:size=320x240:rate=25', '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+              ]),
+            }]
+          : []),
+        {
+          path: 'media/song.flac',
+          data: ffmpeg('song.flac', [
+            '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1', '-i', cover,
+            '-map', '0:a', '-map', '1:v', '-c:a', 'flac', '-c:v', 'png', '-disposition:v', 'attached_pic',
+          ]),
+        },
+      );
+    }
+
+    const init = await createTransfer(payloads);
+    transferId = init.transferId;
+    ownerToken = init.ownerToken;
+    const info = await (await fetch(`${BASE}/api/transfer/${transferId}`)).json();
+    for (const entry of info.entries) ids[entry.name] = entry.id;
+
+    const res = await fetch(thumbUrl('photo.jpg'));
+    expect(res.headers.get('cache-control')).toMatch(/^private, max-age=[1-9]\d*$/);
+    const meta = await picture(res);
+    expect([meta.width, meta.height]).toEqual([384, 384]);
+  });
+
+  it('keeps the aspect ratio in the large size and stands the photo upright', async () => {
+    const meta = await picture(await fetch(thumbUrl('photo.jpg', 'lg')));
+    expect([meta.width, meta.height]).toEqual([800, 1280]);
+  });
+
+  it('serves repeats from the disk cache and answers 304 to a known ETag', async () => {
+    const first = await fetch(thumbUrl('photo.jpg'));
+    const etag = first.headers.get('etag');
+    expect(etag).toBeTruthy();
+
+    const again = await fetch(thumbUrl('photo.jpg'), { headers: { 'If-None-Match': etag! } });
+    expect(again.status).toBe(304);
+
+    const cached = readdirSync(join(thumbsDir, transferId)).filter((name) => name.endsWith('.webp'));
+    expect(cached).toContain(`${ids['photo.jpg']}-sm.v1.webp`);
+    expect(cached).toContain(`${ids['photo.jpg']}-lg.v1.webp`);
+  });
+
+  it('renders a tiny SVG at tile size instead of upscaling it', async () => {
+    const meta = await picture(await fetch(thumbUrl('logo.svg')));
+    expect([meta.width, meta.height]).toEqual([384, 384]);
+  });
+
+  it('refuses types without a picture and unknown sizes', async () => {
+    expect((await fetch(thumbUrl('notes.txt'))).status).toBe(415);
+    expect((await fetch(thumbUrl('photo.jpg', 'huge'))).status).toBe(400);
+  });
+
+  it('never renders SVG content read from a file', async () => {
+    expect((await fetch(thumbUrl('fake.png'))).status).toBe(404);
+  });
+
+  it.if(hasX264)('publishes a rendition only once it is complete', async () => {
+    const res = await fetch(`${BASE}/api/transfer/${transferId}/render/${ids['clip.mkv']}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('video/mp4');
+    expect((await res.arrayBuffer()).byteLength).toBeGreaterThan(0);
+
+    const renders = readdirSync(join(uploadsDir, transferId, '.render'));
+    expect(renders.some((name) => /^out-\d+\.mp4$/.test(name))).toBe(true);
+    expect(renders.filter((name) => name.includes('.part.'))).toEqual([]);
+
+    // The unplayable container still gets a frame for its tile.
+    const frame = await picture(await fetch(thumbUrl('clip.mkv')));
+    expect([frame.width, frame.height]).toEqual([320, 240]);
+  }, 60_000);
+
+  it.if(hasFfmpeg)('grabs a video frame and embedded cover art', async () => {
+    // 640x360 is shorter than the tile: cropped to width, never enlarged.
+    const frame = await picture(await fetch(thumbUrl('clip.mp4')));
+    expect([frame.width, frame.height]).toEqual([384, 360]);
+    // The frame cost an ffmpeg run, so the large size was cut from it right away.
+    expect(existsSync(join(thumbsDir, transferId, `${ids['clip.mp4']}-lg.v1.webp`))).toBe(true);
+
+    const cover = await picture(await fetch(thumbUrl('song.flac')));
+    expect([cover.width, cover.height]).toEqual([300, 300]);
+  });
+
+  it.if(hasFfmpeg)('answers 404 for audio without cover art and remembers it', async () => {
+    const res = await fetch(thumbUrl('tone.wav'));
+    expect(res.status).toBe(404);
+    expect(res.headers.get('cache-control')).toMatch(/^private, max-age=\d+$/);
+    expect(existsSync(join(thumbsDir, transferId, `${ids['tone.wav']}-sm.v1.none`))).toBe(true);
+  });
+
+  it('deletes the thumbnails together with the transfer', async () => {
+    expect(existsSync(join(thumbsDir, transferId))).toBe(true);
+    const res = await fetch(`${BASE}/api/transfer/${transferId}`, {
+      method: 'DELETE',
+      headers: { 'X-Owner-Token': ownerToken },
+    });
+    expect(res.status).toBe(200);
+    expect(existsSync(join(thumbsDir, transferId))).toBe(false);
   });
 });
 

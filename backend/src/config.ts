@@ -65,7 +65,7 @@ export const RATE_LIMIT_MAX_TRANSFERS = 60;
  * above anything a legitimate client produces; the expensive paths (creating a
  * transfer, server-side rendering) are held much tighter.
  */
-export type RateCategory = 'init' | 'upload' | 'mutate' | 'read' | 'download' | 'render';
+export type RateCategory = 'init' | 'upload' | 'mutate' | 'read' | 'download' | 'render' | 'thumb';
 
 function rateRule(key: string, defMax: number, defWindowMs: number): { max: number; windowMs: number } {
   const max = Number(process.env[`RL_${key}_MAX`]);
@@ -95,6 +95,9 @@ export const RATE_LIMITS: Record<RateCategory, { max: number; windowMs: number }
   // Server-side rendering (LibreOffice / ffmpeg / ImageMagick) and cracking an
   // archive open to list it are CPU and memory heavy - capped the hardest.
   render: rateRule('RENDER', 60, 60_000),
+  // Thumbnails: a gallery asks for one per tile, and almost every request is
+  // a cache hit. Generation itself is bounded by THUMB_CONCURRENCY, not here.
+  thumb: rateRule('THUMB', 1200, 60_000),
 };
 
 /**
@@ -148,6 +151,57 @@ export const ARCHIVE_MAX_INPUT_BYTES = Number(
 
 /** Cap on how many entries an archive listing returns. */
 export const ARCHIVE_MAX_ENTRIES = Number(process.env.ARCHIVE_MAX_ENTRIES || 20_000);
+
+/**
+ * Renditions in <transfer>/.render are regenerable, so one nobody has asked
+ * for in this long is deleted even while its transfer is still alive.
+ */
+export const RENDER_CACHE_TTL_MS = Number(process.env.RENDER_CACHE_TTL_MS || 3 * 24 * 60 * 60 * 1000);
+
+/* ------------------------------------------------------------ thumbnails */
+
+/**
+ * Where generated thumbnails are cached, one folder per transfer. Kept out of
+ * UPLOADS_DIR on purpose: every entry in there is owned by a transfer id and
+ * the sweeper would treat anything else as an orphan.
+ */
+export const THUMB_CACHE_DIR = resolve(process.env.THUMB_CACHE_DIR || join(ROOT, 'cache', 'thumbs'));
+
+/** A thumbnail nobody has requested for this long is deleted. */
+export const THUMB_CACHE_TTL_MS = Number(process.env.THUMB_CACHE_TTL_MS || 3 * 24 * 60 * 60 * 1000);
+
+/** Ceiling on the whole thumbnail cache; the least recently used go first. */
+export const THUMB_CACHE_MAX_BYTES = Number(process.env.THUMB_CACHE_MAX_BYTES || 1024 * 1024 * 1024);
+
+/**
+ * Uploads come first: below this much free disk space thumbnails are still
+ * served, but no longer stored, and the cache is trimmed on every sweep.
+ */
+export const THUMB_CACHE_MIN_FREE_BYTES = Number(
+  process.env.THUMB_CACHE_MIN_FREE_BYTES || 2 * 1024 * 1024 * 1024,
+);
+
+/** At most this many thumbnails are generated at once. */
+export const THUMB_CONCURRENCY = Number(process.env.THUMB_CONCURRENCY || 2);
+
+/**
+ * Thumbnails allowed to wait for a slot. Past this a request is answered 503
+ * with Retry-After at once instead of queueing behind hundreds of others.
+ */
+export const THUMB_QUEUE_MAX = Number(process.env.THUMB_QUEUE_MAX || 256);
+
+/** Threads libvips may use for one image; the box is shared with other sites. */
+export const THUMB_VIPS_THREADS = Number(process.env.THUMB_VIPS_THREADS || 2);
+
+/** Ceiling on one thumbnail: decode + encode, or one ffmpeg/ImageMagick run. */
+export const THUMB_TIMEOUT_MS = Number(process.env.THUMB_TIMEOUT_MS || 30_000);
+
+/**
+ * Largest image libvips will open for a thumbnail. JPEG decodes shrunk, so
+ * this mostly guards against decompression bombs in PNG/TIFF; the timeout
+ * above is the second line.
+ */
+export const THUMB_MAX_INPUT_PIXELS = Number(process.env.THUMB_MAX_INPUT_PIXELS || 500_000_000);
 
 export const ALLOWED_ORIGINS = (
   process.env.ALLOWED_ORIGINS ||

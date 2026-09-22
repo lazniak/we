@@ -28,6 +28,7 @@ import {
   safeDownloadMime,
 } from '../lib/fileSafety';
 import { renderPreview } from '../lib/render';
+import { canThumbnail, getThumbnail, parseThumbSize, ThumbnailBusy } from '../lib/thumbnail';
 import { listArchive } from '../lib/archive';
 import { ARCHIVE_MAX_INPUT_BYTES } from '../config';
 import {
@@ -356,6 +357,74 @@ async function serveRender(
   );
 }
 
+/**
+ * A small WebP of a picture, a video frame or embedded cover art, for gallery
+ * tiles, list icons and the hover backdrop. Unlike every other response here
+ * it may be kept by the browser - but never past the link's own lifetime.
+ */
+async function serveThumb(
+  transfer: Transfer,
+  fileId: number,
+  sizeParam: string | null,
+  ifNoneMatch: string | null,
+  origin: string | null,
+  headOnly: boolean,
+): Promise<Response> {
+  if (!Number.isSafeInteger(fileId)) return jsonError('File not found', 404, origin);
+
+  const size = parseThumbSize(sizeParam);
+  if (!size) return jsonError('Unknown thumbnail size', 400, origin);
+
+  const file = getTransferFileById(transfer.id, fileId);
+  if (!file || file.is_dir) return jsonError('File not found', 404, origin);
+
+  const kind = previewKind(file.rel_path);
+  if (!canThumbnail(kind)) return jsonError('No thumbnail for this file type', 415, origin);
+
+  const secondsLeft = Math.floor((new Date(transfer.expires_at).getTime() - Date.now()) / 1000);
+  const maxAge = Math.max(0, Math.min(86_400, secondsLeft));
+
+  let data: Uint8Array | null;
+  try {
+    data = await getThumbnail(transfer.id, file, kind, size);
+  } catch (error) {
+    if (!(error instanceof ThumbnailBusy)) throw error;
+    return new Response(JSON.stringify({ error: 'Busy, try again shortly' }), {
+      status: 503,
+      headers: withCommonHeaders(
+        { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Retry-After': '3' },
+        origin,
+      ),
+    });
+  }
+  if (!data) {
+    // "No cover art" is an answer too; a tile should not ask again on every render.
+    return new Response(JSON.stringify({ error: 'No thumbnail' }), {
+      status: 404,
+      headers: withCommonHeaders(
+        { 'Content-Type': 'application/json', 'Cache-Control': `private, max-age=${Math.min(maxAge, 600)}` },
+        origin,
+      ),
+    });
+  }
+
+  const etag = `"${Bun.hash(data).toString(36)}"`;
+  const headers = withCommonHeaders(
+    {
+      'Content-Type': 'image/webp',
+      'Content-Disposition': contentDisposition(`${basenameOf(file.rel_path)}.webp`, true),
+      'Content-Security-Policy': "default-src 'none'; sandbox",
+      'Cache-Control': `private, max-age=${maxAge}`,
+      ETag: etag,
+    },
+    origin,
+  );
+
+  if (ifNoneMatch === etag) return new Response(null, { status: 304, headers });
+  headers.set('Content-Length', String(data.byteLength));
+  return new Response(headOnly ? null : (data as Uint8Array<ArrayBuffer>), { headers });
+}
+
 /** Lists an archive's structure as JSON. Never exposes the contents. */
 async function serveArchive(
   transfer: Transfer,
@@ -386,7 +455,7 @@ async function serveArchive(
 
 /* --------------------------------------------------------------- router */
 
-const ROUTE = /^\/api\/transfer\/([^/]+)\/(download|file|preview|render|archive)(?:\/([^/]+))?$/;
+const ROUTE = /^\/api\/transfer\/([^/]+)\/(download|file|preview|render|archive|thumb)(?:\/([^/]+))?$/;
 
 /**
  * Returns a Response for download style requests, or null when the request
@@ -426,9 +495,10 @@ export async function handleDownloadRequest(
   const headOnly = req.method === 'HEAD';
 
   // Rendering and archive listings are CPU/memory heavy, so they get the tight
-  // 'render' budget; plain file, preview and zip streaming share 'download'.
+  // 'render' budget; thumbnails have their own, roomy one (a gallery asks for
+  // one per tile); plain file, preview and zip streaming share 'download'.
   const throttled = enforceRawRateLimit(
-    kind === 'render' || kind === 'archive' ? 'render' : 'download',
+    kind === 'render' || kind === 'archive' ? 'render' : kind === 'thumb' ? 'thumb' : 'download',
     req.headers,
     (extra) => withCommonHeaders(extra, origin),
   );
@@ -455,6 +525,17 @@ export async function handleDownloadRequest(
 
   if (kind === 'archive') {
     return serveArchive(transfer, Number(param), origin);
+  }
+
+  if (kind === 'thumb') {
+    return serveThumb(
+      transfer,
+      Number(param),
+      url.searchParams.get('s'),
+      req.headers.get('if-none-match'),
+      origin,
+      headOnly,
+    );
   }
 
   if (kind === 'file' || kind === 'preview') {

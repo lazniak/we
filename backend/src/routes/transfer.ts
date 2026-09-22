@@ -55,6 +55,7 @@ import {
 } from '../lib/storage';
 import { crc32, crc32Combine } from '../lib/zipStream';
 import { rateLimit } from '../lib/rateLimit';
+import { thumbnailDir } from '../lib/thumbnail';
 
 ensureUploadsDir();
 
@@ -82,7 +83,7 @@ function transferDisplayName(paths: string[]): string {
 /** Removes every on-disk artefact belonging to a transfer. */
 export function purgeTransferFromDisk(id: string): void {
   if (!isValidTransferId(id)) return;
-  for (const path of [transferDir(id), legacyChunksDir(id), legacyArchivePath(id)]) {
+  for (const path of [transferDir(id), legacyChunksDir(id), legacyArchivePath(id), thumbnailDir(id)]) {
     try {
       rmSync(path, { recursive: true, force: true });
     } catch {

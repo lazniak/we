@@ -8,6 +8,8 @@ import {
   UPLOADS_DIR,
 } from './config';
 import { deleteTransfer, getAllTransferIds, getTransfersToPurge } from './db';
+import { pruneRenderCache } from './lib/render';
+import { sweepThumbnailCache, thumbnailDir } from './lib/thumbnail';
 
 function remove(path: string): boolean {
   if (!existsSync(path)) return false;
@@ -26,6 +28,7 @@ function pathsFor(id: string): string[] {
     join(UPLOADS_DIR, id),
     join(UPLOADS_DIR, `${id}.zip`),
     join(UPLOADS_DIR, `${id}_chunks`),
+    thumbnailDir(id),
   ];
 }
 
@@ -100,9 +103,19 @@ export function cleanupExpiredTransfers(): void {
     }
   }
 
+  // 3. Disposable caches: renditions and thumbnails nobody has used lately,
+  // and thumbnails of transfers that no longer exist.
+  const live = getAllTransferIds();
+  let renderFreed = 0;
+  for (const id of live) renderFreed += pruneRenderCache(id);
+  sweepThumbnailCache(live);
+
   const ms = Date.now() - started;
-  if (purged || orphans) {
-    console.log(`🧹 Cleanup: ${purged} expired, ${orphans} orphaned (${ms}ms)`);
+  if (purged || orphans || renderFreed) {
+    console.log(
+      `🧹 Cleanup: ${purged} expired, ${orphans} orphaned, ` +
+        `${(renderFreed / 1024 / 1024).toFixed(1)} MB of stale renditions (${ms}ms)`,
+    );
   }
 }
 

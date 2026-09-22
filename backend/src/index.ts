@@ -48,6 +48,9 @@ app.onError((error, c) => {
 
 const PORT = Number(process.env.PORT || 3001);
 
+/** Routes that may think for a while before sending the first byte. */
+const SLOW_ROUTE = /^\/api\/transfer\/[^/]+\/(?:thumb|render|archive)\//;
+
 const server = Bun.serve({
   hostname: BIND_HOST,
   port: PORT,
@@ -74,6 +77,10 @@ const server = Bun.serve({
       if (server.upgrade(req, { data: { transferId } })) return undefined;
       return new Response('WebSocket upgrade failed', { status: 400 });
     }
+
+    // Conversions answer only when done, and Bun drops a connection idle for
+    // 10 s by default - longer than a queued thumbnail or a document render.
+    if (SLOW_ROUTE.test(url.pathname)) server.timeout(req, 240);
 
     // Downloads bypass Hono - see routes/download.ts for why.
     try {

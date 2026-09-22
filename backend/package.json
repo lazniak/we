@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "hono": "^4.6.0",
-    "nanoid": "^5.0.7"
+    "nanoid": "^5.0.7",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@types/bun": "^1.1.0",
