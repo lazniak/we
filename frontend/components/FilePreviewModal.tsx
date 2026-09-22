@@ -73,11 +73,20 @@ function parseDelimited(input: string, delimiter: string): string[][] {
 function RenderedPreview({ transferId, entry }: { transferId: string; entry: TransferEntry }) {
   const [state, setState] = useState<{ url: string; type: string } | null>(null);
   const [error, setError] = useState(false);
+  const [stillFailed, setStillFailed] = useState(false);
+
+  // Pictures and video have a large thumbnail, usually ready well before the
+  // full conversion: it stands in while that runs and poses as the poster.
+  const still =
+    !stillFailed && (entry.previewKind === 'image-render' || entry.previewKind === 'video-render')
+      ? api.thumb(transferId, entry.id, 'lg')
+      : undefined;
 
   useEffect(() => {
     const controller = new AbortController();
     setState(null);
     setError(false);
+    setStillFailed(false);
     const url = api.render(transferId, entry.id);
 
     fetch(url, { method: 'HEAD', signal: controller.signal })
@@ -101,9 +110,18 @@ function RenderedPreview({ transferId, entry }: { transferId: string; entry: Tra
   }
   if (!state) {
     return (
-      <div className="w-[min(96vw,72rem)] h-[70vh] flex flex-col items-center justify-center gap-2">
-        <Loader2 className="w-6 h-6 text-accent/60 animate-spin" />
-        <span className="text-xs text-white/40">Generowanie podglądu…</span>
+      <div className="relative w-[min(96vw,72rem)] h-[70vh] flex flex-col items-center justify-center gap-2">
+        {still && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={still}
+            alt=""
+            onError={() => setStillFailed(true)}
+            className="absolute inset-0 w-full h-full object-contain opacity-40 rounded-lg"
+          />
+        )}
+        <Loader2 className="relative w-6 h-6 text-accent/60 animate-spin" />
+        <span className="relative text-xs text-white/40">Generowanie podglądu…</span>
       </div>
     );
   }
@@ -115,7 +133,14 @@ function RenderedPreview({ transferId, entry }: { transferId: string; entry: Tra
   }
   if (state.type.startsWith('video/')) {
     return (
-      <video src={state.url} className="max-w-full max-h-[88vh] rounded-lg shadow-2xl" controls autoPlay playsInline />
+      <video
+        src={state.url}
+        poster={still}
+        className="max-w-full max-h-[88vh] rounded-lg shadow-2xl"
+        controls
+        autoPlay
+        playsInline
+      />
     );
   }
   /* eslint-disable-next-line @next/next/no-img-element */
@@ -318,7 +343,14 @@ export default function FilePreviewModal({
             <img src={previewUrl} alt={entry.name} className="max-w-full max-h-[88vh] object-contain rounded-lg shadow-2xl" />
           )}
           {!pano && kind === 'video' && (
-            <video src={previewUrl} className="max-w-full max-h-[88vh] rounded-lg shadow-2xl" controls autoPlay playsInline />
+            <video
+              src={previewUrl}
+              poster={api.thumb(transferId, entry.id, 'lg')}
+              className="max-w-full max-h-[88vh] rounded-lg shadow-2xl"
+              controls
+              autoPlay
+              playsInline
+            />
           )}
           {kind === 'audio' && (
             <div className="glass rounded-2xl p-8 w-[min(92vw,32rem)]">

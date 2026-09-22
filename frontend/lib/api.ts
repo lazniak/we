@@ -8,6 +8,12 @@ export const api = {
     `/api/transfer/${transferId}/file/${fileId}`,
   preview: (transferId: string, fileId: number) =>
     `/api/transfer/${transferId}/preview/${fileId}`,
+  /**
+   * Small WebP of a picture, a video frame or embedded cover art, cached by
+   * the server: "sm" is a 384 px square for tiles, "lg" fits 1280 px.
+   */
+  thumb: (transferId: string, fileId: number, size: 'sm' | 'lg' = 'sm') =>
+    `/api/transfer/${transferId}/thumb/${fileId}${size === 'lg' ? '?s=lg' : ''}`,
   /** Server-rendered rendition: document → PDF, exotic image → PNG, … */
   render: (transferId: string, fileId: number) =>
     `/api/transfer/${transferId}/render/${fileId}`,

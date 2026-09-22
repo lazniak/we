@@ -148,6 +148,14 @@ export function isMediaEntry(entry: TransferEntry): boolean {
   return !entry.isDir && entry.previewKind !== null && MEDIA_KINDS.has(entry.previewKind);
 }
 
+/**
+ * Whether the server can make a thumbnail: every media file - a picture, a
+ * video frame, or the cover art of an audio file (which may turn out absent).
+ */
+export function hasThumbnail(entry: TransferEntry): boolean {
+  return isMediaEntry(entry);
+}
+
 /** Folder part of a path, "" for the root. */
 export function parentPath(path: string): string {
   const idx = path.lastIndexOf('/');

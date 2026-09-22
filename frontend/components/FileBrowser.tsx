@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpToLine,
   ChevronRight,
@@ -24,6 +24,7 @@ import {
   buildTree,
   findNode,
   flattenFiles,
+  hasThumbnail,
   isMediaEntry,
   parentPath,
   searchFiles,
@@ -50,6 +51,16 @@ const SORTS: { id: SortMode; label: string }[] = [
 ];
 
 type ViewMode = 'list' | 'grid' | 'media';
+
+/** How long the pointer rests on a row before its backdrop is fetched. */
+const HOVER_INTENT_MS = 120;
+
+/**
+ * A failed thumbnail is asked for once more after this long. A busy server
+ * answers 503, and an <img> cannot tell that from "nothing to show" - which
+ * the server remembers, so the second ask is cheap either way.
+ */
+const THUMB_RETRY_MS = 3000;
 
 const VIEWS: { id: ViewMode; label: string; Icon: typeof List }[] = [
   { id: 'list', label: 'Lista', Icon: List },
@@ -127,18 +138,33 @@ export default function FileBrowser({ transferId, entries, onHoverMedia }: FileB
     [previewable, searching, view],
   );
 
+  /**
+   * Paints the page backdrop for whatever is hovered. Pictures show as their
+   * large thumbnail - a backdrop at a fifth of full opacity has no use for the
+   * original bytes - while playable video still moves. The short delay lets a
+   * pointer sweep across the list without fetching a backdrop per row passed.
+   */
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+  }, []);
+
   const hover = useCallback(
     (entry: TransferEntry | null) => {
       if (!onHoverMedia) return;
+      if (hoverTimer.current) clearTimeout(hoverTimer.current);
       if (!entry) {
         onHoverMedia(null, null);
         return;
       }
-      if (entry.previewKind === 'image' || entry.previewKind === 'svg') {
-        onHoverMedia(api.preview(transferId, entry.id), 'image');
-      } else if (entry.previewKind === 'video' && !entry.is360) {
-        onHoverMedia(api.preview(transferId, entry.id), 'video');
-      } else onHoverMedia(null, null);
+      hoverTimer.current = setTimeout(() => {
+        const kind = entry.previewKind;
+        if (kind === 'video' && !entry.is360) {
+          onHoverMedia(api.preview(transferId, entry.id), 'video');
+        } else if (kind === 'image' || kind === 'svg' || kind === 'image-render' || kind === 'video-render') {
+          onHoverMedia(api.thumb(transferId, entry.id, 'lg'), 'image');
+        } else onHoverMedia(null, null);
+      }, HOVER_INTENT_MS);
     },
     [onHoverMedia, transferId],
   );
@@ -441,25 +467,50 @@ function Thumb({
   entry: TransferEntry;
   iconSize?: 'sm' | 'lg';
 }) {
-  // Only cheap, web-native media gets a real thumbnail. Exotic images and
-  // documents would each trigger a server-side conversion per grid cell, so
-  // they show their type icon and render only when opened.
-  const url = api.preview(transferId, entry.id);
+  // Media gets a small WebP made and cached by the server: a few kilobytes
+  // instead of the whole photo, a still frame instead of a video element per
+  // tile, and exotic formats (RAW, PSD, MKV…) included. The type icon stands
+  // in until it arrives, and stays when there is nothing to show - audio
+  // without cover art, a file no decoder can read.
+  const [state, setState] = useState<'loading' | 'waiting' | 'shown' | 'none'>(() =>
+    hasThumbnail(entry) ? 'loading' : 'none',
+  );
+  const [retried, setRetried] = useState(false);
 
-  if (entry.previewKind === 'image' || entry.previewKind === 'svg') {
-    return (
-      /* eslint-disable-next-line @next/next/no-img-element */
-      <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
-    );
-  }
-  if (entry.previewKind === 'video') {
-    return (
-      <video src={url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
-    );
-  }
+  useEffect(() => {
+    if (state !== 'waiting') return;
+    const timer = setTimeout(() => {
+      setRetried(true);
+      setState('loading');
+    }, THUMB_RETRY_MS);
+    return () => clearTimeout(timer);
+  }, [state]);
+
+  const src = api.thumb(transferId, entry.id);
+
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <FileIcon filename={entry.name} size={iconSize} />
+    <div className="relative w-full h-full">
+      {state !== 'shown' && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <FileIcon filename={entry.name} size={iconSize} />
+        </div>
+      )}
+      {(state === 'loading' || state === 'shown') && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={retried ? `${src}${src.includes('?') ? '&' : '?'}retry=1` : src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onLoad={() => setState('shown')}
+          onError={() => setState(retried ? 'none' : 'waiting')}
+          className={clsx(
+            'absolute inset-0 w-full h-full object-cover transition-opacity duration-300',
+            state === 'shown' ? 'opacity-100' : 'opacity-0',
+          )}
+        />
+      )}
     </div>
   );
 }
