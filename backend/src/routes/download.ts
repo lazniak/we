@@ -540,8 +540,13 @@ async function serveOneTime(
       console.log(`↩️  One-time ${transfer.id}: download broke off, released`);
       return;
     }
+    // The link dies right away; the bytes go a moment later. At this point the
+    // stream has handed over its last chunk but may still hold the file open,
+    // and on a share without POSIX delete semantics (SMB) removing the folder
+    // under an open handle makes a synchronous rm retry forever, blocking the
+    // whole server. One second is ample for the handle to close.
     markConsumed(transfer.id);
-    purgeTransferFromDisk(transfer.id);
+    setTimeout(() => purgeTransferFromDisk(transfer.id), 1000);
     broadcastProgress(transfer.id, { type: 'error', transferId: transfer.id, status: 'consumed' });
     console.log(`🔥 One-time ${transfer.id}: collected and destroyed`);
   };

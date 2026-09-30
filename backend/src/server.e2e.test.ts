@@ -378,6 +378,8 @@ describe('one-time transfers', () => {
     const gone = await fetch(`${BASE}/api/transfer/${id}`);
     expect(gone.status).toBe(410);
     expect((await gone.json()).status).toBe('consumed');
+    // The bytes follow the link shortly after, once the stream let go of them.
+    for (let i = 0; i < 60 && existsSync(join(uploadsDir, id)); i++) await Bun.sleep(50);
     expect(existsSync(join(uploadsDir, id))).toBe(false);
     expect((await fetch(`${BASE}/api/transfer/${id}/download`)).status).toBe(410);
   });
