@@ -8,6 +8,7 @@ import Stats from '@/components/Stats';
 import TransferHistory from '@/components/TransferHistory';
 import HexartPromo from '@/components/HexartPromo';
 import BusinessCard from '@/components/BusinessCard';
+import PromoStage from '@/components/PromoStage';
 import Logo from '@/components/Logo';
 import SiteFooter from '@/components/SiteFooter';
 import { finishTransfer, UploadAbortedError, uploadFiles } from '@/lib/uploader';
@@ -18,6 +19,7 @@ import {
   updateTransferStatus,
 } from '@/lib/transferHistory';
 import { plural } from '@/lib/format';
+import { DESK_QUERY, useMediaQuery } from '@/lib/hooks';
 import type { InitTransferResponse, UploadState } from '@/lib/types';
 
 const initialState: UploadState = {
@@ -36,10 +38,19 @@ const initialState: UploadState = {
   error: null,
 };
 
+interface LinkOptions {
+  expiresAt: string | null;
+  oneTime: boolean;
+  passwordProtected: boolean;
+}
+
+const noOptions: LinkOptions = { expiresAt: null, oneTime: false, passwordProtected: false };
+
 export default function HomePage() {
   const [state, setState] = useState<UploadState>(initialState);
-  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [link, setLink] = useState<LinkOptions>(noOptions);
   const abortRef = useRef<AbortController | null>(null);
+  const desk = useMediaQuery(DESK_QUERY);
 
   const isBusy =
     state.phase === 'preparing' || state.phase === 'uploading' || state.phase === 'finishing';
@@ -60,7 +71,7 @@ export default function HomePage() {
   }, [isBusy]);
 
   const handleFilesSelected = useCallback(async (metadata: FilesMetadata) => {
-    const { files, paths, dirs, expirationDays } = metadata;
+    const { files, paths, dirs, expirationDays, oneTime, password } = metadata;
     if (files.length === 0) return;
 
     const controller = new AbortController();
@@ -83,6 +94,9 @@ export default function HomePage() {
         body: JSON.stringify({
           expirationDays,
           dirs,
+          oneTime,
+          // Sent once, hashed on the server, never stored in this browser.
+          password: password || undefined,
           files: files.map((file, index) => ({
             path: paths[index] || file.name,
             size: file.size,
@@ -103,7 +117,11 @@ export default function HomePage() {
           ? init.files[0].path
           : `${init.files.length} ${plural(init.files.length, 'plik', 'pliki', 'plików')}`;
 
-      setExpiresAt(init.expiresAt);
+      setLink({
+        expiresAt: init.expiresAt,
+        oneTime: Boolean(init.oneTime),
+        passwordProtected: Boolean(init.passwordProtected),
+      });
       setState((previous) => ({
         ...previous,
         phase: 'uploading',
@@ -122,6 +140,8 @@ export default function HomePage() {
         ownerToken: init.ownerToken,
         size: init.totalSize,
         fileCount: init.files.length,
+        oneTime: Boolean(init.oneTime),
+        passwordProtected: Boolean(init.passwordProtected),
       });
 
       await uploadFiles({
@@ -149,7 +169,7 @@ export default function HomePage() {
     } catch (error) {
       if (error instanceof UploadAbortedError || controller.signal.aborted) {
         setState(initialState);
-        setExpiresAt(null);
+        setLink(noOptions);
         return;
       }
 
@@ -179,80 +199,92 @@ export default function HomePage() {
     }
 
     setState(initialState);
-    setExpiresAt(null);
+    setLink(noOptions);
   }, [state.transferId]);
 
   const handleReset = () => {
     setState(initialState);
-    setExpiresAt(null);
+    setLink(noOptions);
   };
 
   const showDropZone = state.phase === 'idle';
   const showShareLink = state.shareUrl !== null;
+  const showPromo = !desk && (showDropZone || state.phase === 'complete');
 
   return (
-    <main className="min-h-screen flex flex-col font-body">
-      <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-12">
-        <div className="mb-8">
-          <Logo size="lg" showTagline />
-        </div>
+    // --panel-w is shared with PromoStage, which lays its copy out to the
+    // right of the panel.
+    <main className="relative min-h-screen font-body [--panel-w:480px] 2xl:[--panel-w:540px]">
+      <PromoStage />
 
-        {showDropZone && (
-          <div className="text-center mb-8 animate-fade-in">
-            <p className="text-sm text-white/40 max-w-md mx-auto leading-relaxed">
-              Wyślij do 5&nbsp;GB bez zakładania konta. Katalogi zachowują strukturę,
-              a pliki kasują się same po wygaśnięciu linku.
-            </p>
+      <div className="relative z-10 flex min-h-screen flex-col desk:w-[var(--panel-w)] desk:border-r desk:border-white/[0.07] desk:bg-[#0a0a0c]/75 desk:backdrop-blur-xl desk:shadow-[30px_0_90px_-30px_rgba(0,0,0,0.9)]">
+        <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-12 desk:justify-start desk:px-2 desk:pt-14">
+          <div className="mb-8">
+            <Logo size="lg" showTagline />
           </div>
-        )}
 
-        <div className="w-full space-y-4">
           {showDropZone && (
-            <DropZone onFilesSelected={handleFilesSelected} disabled={state.phase !== 'idle'} />
-          )}
-
-          {showShareLink && (
-            <ShareLink
-              shareUrl={state.shareUrl!}
-              expiresAt={expiresAt || undefined}
-              isUploading={isBusy}
-            />
-          )}
-
-          {(isBusy || state.phase === 'error' || state.phase === 'complete') && (
-            <UploadProgress state={state} onCancel={isBusy ? handleCancel : undefined} />
-          )}
-
-          {(state.phase === 'complete' || state.phase === 'error') && (
-            <div className="flex justify-center">
-              <button
-                onClick={handleReset}
-                className="text-xs text-white/30 hover:text-accent transition-colors px-4 py-2"
-              >
-                {state.phase === 'error' ? 'Spróbuj od nowa' : 'Wyślij coś jeszcze'}
-              </button>
+            <div className="text-center mb-8 animate-fade-in">
+              <p className="text-sm text-white/40 max-w-md mx-auto leading-relaxed px-4">
+                Wyślij do 5&nbsp;GB bez zakładania konta. Katalogi zachowują strukturę,
+                a pliki kasują się same po wygaśnięciu linku.
+              </p>
             </div>
           )}
+
+          <div className="w-full space-y-4">
+            {showDropZone && (
+              <DropZone onFilesSelected={handleFilesSelected} disabled={state.phase !== 'idle'} />
+            )}
+
+            {showShareLink && (
+              <ShareLink
+                shareUrl={state.shareUrl!}
+                expiresAt={link.expiresAt || undefined}
+                isUploading={isBusy}
+                oneTime={link.oneTime}
+                passwordProtected={link.passwordProtected}
+              />
+            )}
+
+            {(isBusy || state.phase === 'error' || state.phase === 'complete') && (
+              <UploadProgress state={state} onCancel={isBusy ? handleCancel : undefined} />
+            )}
+
+            {(state.phase === 'complete' || state.phase === 'error') && (
+              <div className="flex justify-center">
+                <button
+                  onClick={handleReset}
+                  className="text-xs text-white/30 hover:text-accent transition-colors px-4 py-2"
+                >
+                  {state.phase === 'error' ? 'Spróbuj od nowa' : 'Wyślij coś jeszcze'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Finished transfers sit right under the tool: they are what a
+              returning sender comes back for. The one on screen right now is
+              left out, it already has its own card above. */}
+          <TransferHistory
+            excludeId={state.phase === 'idle' ? null : state.transferId}
+            refreshKey={state.phase}
+          />
+
+          {/* Phones and portrait screens: the square poster and the card. On a
+              large landscape screen the stage behind the panel does this job. */}
+          {showPromo && (
+            <div className="w-full max-w-xl mx-auto px-4 desk:hidden">
+              <HexartPromo />
+              <BusinessCard />
+            </div>
+          )}
+
+          {showDropZone && <Stats />}
         </div>
 
-        {/* Promo studia towarzyszy też ekranowi „gotowe” — to moment,
-            w którym ktoś właśnie skopiował link i ma chwilę uwagi. */}
-        {(showDropZone || state.phase === 'complete') && (
-          <div className="w-full max-w-xl mx-auto px-4">
-            <HexartPromo />
-            <BusinessCard />
-          </div>
-        )}
-
-        {showDropZone && (
-          <>
-            <Stats />
-            <TransferHistory />
-          </>
-        )}
+        <SiteFooter panel />
       </div>
-
-      <SiteFooter />
     </main>
   );
 }

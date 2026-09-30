@@ -9,9 +9,16 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      screens: {
+        // Large screen held sideways: panel on the left, studio ad behind it.
+        // Mirrors DESK_QUERY in lib/hooks.ts.
+        desk: { raw: '(min-width: 1024px) and (orientation: landscape)' },
+      },
       fontFamily: {
         display: ['var(--font-outfit)', 'Outfit', 'sans-serif'],
         body: ['var(--font-outfit)', 'Outfit', 'sans-serif'],
+        // Brand face for kickers, labels and numbers (uppercase, tracked).
+        label: ['"Barlow Condensed"', '"Bahnschrift SemiCondensed"', 'sans-serif'],
       },
       colors: {
         bg: {

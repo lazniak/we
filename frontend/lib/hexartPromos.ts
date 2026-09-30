@@ -33,7 +33,7 @@ export const HEXART_PROMOS: Promo[] = [
   },
   {
     kicker: 'Voice AI',
-    title: 'Nie odbierasz — klient dzwoni do konkurencji?',
+    title: 'Nie odbierasz, a klient dzwoni do konkurencji?',
     body: 'Głosowy agent odbiera każdy telefon, umawia spotkania i notuje w CRM.',
     cta: 'Posłuchaj, jak gada',
     href: 'https://hexart.pl/lp/kalendarz-voicebot',
@@ -74,7 +74,7 @@ export const HEXART_PROMOS: Promo[] = [
   {
     kicker: 'XR / VR',
     title: 'Chcesz pokazać produkt przed premierą?',
-    body: 'Klient obejrzy go w VR i wejdzie do showroomu — prosto z fotela.',
+    body: 'Klient obejrzy go w VR i wejdzie do showroomu prosto z fotela.',
     cta: 'Wejdź do środka',
     href: 'https://hexart.pl/uslugi/xr',
     art: 'xr',
@@ -97,7 +97,7 @@ export const HEXART_PROMOS: Promo[] = [
   },
   {
     kicker: 'Kultura / Muzea',
-    title: 'Tworzysz muzeum i szukasz innowacji?',
+    title: 'Tworzysz muzeum i chcesz przyciągnąć zwiedzających?',
     body: 'Zbudujemy interaktywną instalację i immersyjną oś czasu. Zwiedzający jej dotknie.',
     cta: 'Zobacz instalacje',
     href: 'https://hexart.pl/uslugi/xr',
@@ -138,7 +138,7 @@ export const HEXART_PROMOS: Promo[] = [
   {
     kicker: 'Bez ściemy',
     title: 'AI? Ale po co to komu?',
-    body: 'Żeby ludzie robili to, co ważne — a nudną, powtarzalną robotę wziął komputer.',
+    body: 'Żeby ludzie robili to, co ważne. Nudną, powtarzalną robotę niech weźmie komputer.',
     cta: 'Zobacz przykłady',
     href: 'https://hexart.pl/uslugi/ai',
     art: 'contact',

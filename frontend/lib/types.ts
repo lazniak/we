@@ -31,7 +31,7 @@ export interface TransferEntry {
 
 export interface TransferInfo {
   id: string;
-  status: 'pending' | 'uploading' | 'scanning' | 'ready' | 'infected' | 'expired';
+  status: 'pending' | 'uploading' | 'scanning' | 'ready' | 'infected' | 'consumed' | 'expired';
   filename: string;
   total_size: number;
   uploaded_size: number;
@@ -48,6 +48,13 @@ export interface TransferInfo {
   /** Downloading returns the uploaded file untouched, with no ZIP around it. */
   isSingleFile: boolean;
   isLegacyArchive: boolean;
+  /** The first full download destroys the transfer. */
+  oneTime?: boolean;
+  passwordProtected?: boolean;
+  /** A one-time download is running right now. */
+  claimed?: boolean;
+  /** The request carried this transfer's owner token. */
+  isOwner?: boolean;
 }
 
 export interface InitTransferFile {
@@ -62,6 +69,8 @@ export interface InitTransferResponse {
   ownerToken: string;
   shareUrl: string;
   expiresAt: string;
+  oneTime?: boolean;
+  passwordProtected?: boolean;
   chunkSize: number;
   totalSize: number;
   files: InitTransferFile[];

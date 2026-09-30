@@ -6,7 +6,11 @@ import {
   AlertCircle,
   Clock,
   Download,
+  Eye,
+  EyeOff,
   FileArchive,
+  Flame,
+  KeyRound,
   Loader2,
   ShieldAlert,
   ShieldCheck,
@@ -20,6 +24,7 @@ import HexartPromo from '@/components/HexartPromo';
 import BusinessCard from '@/components/BusinessCard';
 import Logo from '@/components/Logo';
 import SiteFooter from '@/components/SiteFooter';
+import { getOwnerToken } from '@/lib/transferHistory';
 import type { ProgressUpdate, TransferInfo } from '@/lib/types';
 
 type PageStatus =
@@ -28,6 +33,8 @@ type PageStatus =
   | 'scanning'
   | 'ready'
   | 'infected'
+  | 'locked'
+  | 'consumed'
   | 'expired'
   | 'not_found'
   | 'error';
@@ -41,6 +48,16 @@ export default function TransferPage() {
   const [progress, setProgress] = useState(0);
   const [eta, setEta] = useState<number | null>(null);
   const [backdrop, setBackdrop] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+  const [lockedOneTime, setLockedOneTime] = useState(false);
+  // One-time pickup: 'started' once this page began the download.
+  const [pickup, setPickup] = useState<'idle' | 'started' | 'interrupted'>('idle');
+  // The sender's own browser: its history holds this transfer's owner token.
+  const [ownerToken, setOwnerToken] = useState<string | undefined>(undefined);
+  const ownerUnlockTried = useRef(false);
+
+  useEffect(() => {
+    setOwnerToken(getOwnerToken(transferId));
+  }, [transferId]);
 
   // Trzymane w ref, żeby efekt odpytujący nie restartował się przy każdej zmianie.
   const statusRef = useRef<PageStatus>('loading');
@@ -55,7 +72,27 @@ export default function TransferPage() {
         return null;
       }
       if (res.status === 410) {
-        setStatus('expired');
+        const body = await res.json().catch(() => null);
+        setStatus(body?.status === 'consumed' ? 'consumed' : 'expired');
+        return null;
+      }
+      if (res.status === 401) {
+        const body = await res.json().catch(() => null);
+        setLockedOneTime(Boolean(body?.oneTime));
+
+        // The sender opening their own link (from the upload screen or the
+        // history) is let in with the owner token, no password typed.
+        const token = getOwnerToken(transferId);
+        if (token && !ownerUnlockTried.current) {
+          ownerUnlockTried.current = true;
+          const unlock = await fetch(`${api.info(transferId)}/unlock`, {
+            method: 'POST',
+            headers: { 'X-Owner-Token': token },
+          }).catch(() => null);
+          if (unlock?.ok) return fetchTransfer();
+        }
+
+        setStatus('locked');
         return null;
       }
       if (!res.ok) {
@@ -83,6 +120,31 @@ export default function TransferPage() {
   useEffect(() => {
     void fetchTransfer();
   }, [fetchTransfer]);
+
+  // While a one-time download runs, watch for the moment the server destroys
+  // the transfer (done) or releases it again (the download broke off).
+  useEffect(() => {
+    if (pickup !== 'started') return;
+    // Two unclaimed reads in a row, so a browser that is slow to start the
+    // download is not mistaken for one that broke off.
+    let unclaimed = 0;
+    const poll = setInterval(async () => {
+      const data = await fetchTransfer();
+      if (!data || data.status !== 'ready') return;
+      unclaimed = data.claimed ? 0 : unclaimed + 1;
+      if (unclaimed >= 2) setPickup('interrupted');
+    }, 3000);
+    return () => clearInterval(poll);
+  }, [pickup, fetchTransfer]);
+
+  const startOneTimeDownload = useCallback(async () => {
+    // Re-check first: someone else may have started in the meantime, and a
+    // refused download would otherwise land as a JSON file in Downloads.
+    const fresh = await fetchTransfer();
+    if (!fresh || fresh.status !== 'ready' || fresh.claimed) return;
+    setPickup('started');
+    triggerDownload(api.downloadAll(transferId));
+  }, [fetchTransfer, transferId]);
 
   // Podgląd postępu na żywo, gdy nadawca jeszcze wysyła.
   useEffect(() => {
@@ -126,7 +188,8 @@ export default function TransferPage() {
   }, [status, transferId, fetchTransfer]);
 
   const entries = transfer?.entries ?? [];
-  const hasBrowser = entries.length > 0;
+  const oneTime = Boolean(transfer?.oneTime);
+  const hasBrowser = entries.length > 0 && !oneTime;
 
   const downloadLabel = useMemo(() => {
     if (!transfer) return 'Pobierz';
@@ -167,6 +230,26 @@ export default function TransferPage() {
             />
           )}
 
+          {status === 'consumed' && (
+            <Notice
+              icon={<Flame className="w-6 h-6 text-accent/70" />}
+              title={pickup === 'started' ? 'Odebrano' : 'Transfer odebrany'}
+              body={
+                pickup === 'started'
+                  ? 'Pliki są u Ciebie. Link był jednorazowy, więc transfer został właśnie usunięty z serwera.'
+                  : 'Ten link był jednorazowy. Pliki zostały już pobrane i usunięte z serwera.'
+              }
+            />
+          )}
+
+          {status === 'locked' && (
+            <PasswordGate
+              transferId={transferId}
+              oneTime={lockedOneTime}
+              onUnlocked={() => void fetchTransfer()}
+            />
+          )}
+
           {status === 'scanning' && (
             <div className="glass rounded-2xl p-6 animate-fade-in text-center">
               <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-5">
@@ -176,8 +259,8 @@ export default function TransferPage() {
                 Sprawdzanie antywirusowe
               </h1>
               <p className="text-xs text-white/40">
-                Pliki dotarły i są właśnie skanowane. Zwykle trwa to kilka sekund —
-                strona odblokuje się sama.
+                Pliki dotarły i są właśnie skanowane. Zwykle trwa to kilka sekund.
+                Strona odblokuje się sama.
               </p>
             </div>
           )}
@@ -266,7 +349,16 @@ export default function TransferPage() {
             </div>
           )}
 
-          {status === 'ready' && transfer && (
+          {status === 'ready' && transfer && oneTime && (
+            <OneTimePickup
+              transfer={transfer}
+              isSender={Boolean(ownerToken)}
+              pickup={pickup}
+              onDownload={() => void startOneTimeDownload()}
+            />
+          )}
+
+          {status === 'ready' && transfer && !oneTime && (
             <div className="glass rounded-2xl p-4 sm:p-6 animate-fade-in">
               <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
                 <div className="min-w-0">
@@ -324,7 +416,10 @@ export default function TransferPage() {
 
         {/* Odbiorca to zwykle ktoś, kto jeszcze nie zna studia — reklama i
             wizytówka lądują pod podglądem/przeglądarką plików. */}
-        {(status === 'ready' || status === 'expired' || status === 'not_found') && (
+        {(status === 'ready' ||
+          status === 'expired' ||
+          status === 'not_found' ||
+          status === 'consumed') && (
           <div className="w-full mx-auto max-w-xl px-4">
             <HexartPromo />
             <BusinessCard />
@@ -356,6 +451,199 @@ function Notice({
       <a href="/" className="text-xs text-accent hover:text-accent-light transition-colors">
         Wyślij własne pliki
       </a>
+    </div>
+  );
+}
+
+function PasswordGate({
+  transferId,
+  oneTime,
+  onUnlocked,
+}: {
+  transferId: string;
+  oneTime: boolean;
+  onUnlocked: () => void;
+}) {
+  const [password, setPassword] = useState('');
+  const [visible, setVisible] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!password || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`${api.info(transferId)}/unlock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        onUnlocked();
+        return;
+      }
+      if (res.status === 429) setError('Za dużo prób. Spróbuj za kilka minut.');
+      else if (res.status === 403) setError('Nieprawidłowe hasło.');
+      else if (res.status === 410) onUnlocked();
+      else setError('Nie udało się sprawdzić hasła. Spróbuj ponownie.');
+    } catch {
+      setError('Brak połączenia. Spróbuj ponownie.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="glass rounded-2xl p-6 animate-fade-in">
+      <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-5">
+        <KeyRound className="w-6 h-6 text-accent" />
+      </div>
+      <h1 className="font-display text-base font-semibold text-white/85 mb-1 text-center">
+        Transfer chroniony hasłem
+      </h1>
+      <p className="text-xs text-white/40 text-center mb-5">
+        Wpisz hasło od nadawcy, żeby zobaczyć i pobrać pliki.
+        {oneTime && ' Link jest jednorazowy: po pobraniu pliki znikną.'}
+      </p>
+
+      <div className="relative">
+        <input
+          type={visible ? 'text' : 'password'}
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          placeholder="Hasło"
+          autoFocus
+          autoComplete="off"
+          spellCheck={false}
+          className="input-glass w-full rounded-xl pl-4 pr-11 py-3 text-sm placeholder:text-white/25"
+          aria-invalid={Boolean(error)}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((value) => !value)}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-white/35 hover:text-white/70 transition-colors"
+          aria-label={visible ? 'Ukryj hasło' : 'Pokaż hasło'}
+        >
+          {visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        </button>
+      </div>
+
+      {error && <p className="mt-3 text-xs text-red-300/85 text-center">{error}</p>}
+
+      <button
+        type="submit"
+        disabled={!password || busy}
+        className="mt-4 w-full py-3 text-sm btn-primary flex items-center justify-center gap-2"
+      >
+        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+        Odblokuj
+      </button>
+    </form>
+  );
+}
+
+function OneTimePickup({
+  transfer,
+  isSender,
+  pickup,
+  onDownload,
+}: {
+  transfer: TransferInfo;
+  isSender: boolean;
+  pickup: 'idle' | 'started' | 'interrupted';
+  onDownload: () => void;
+}) {
+  const files = transfer.entries.filter((entry) => !entry.isDir);
+  const shown = files.slice(0, 8);
+  const busyElsewhere = Boolean(transfer.claimed) && pickup !== 'started';
+
+  return (
+    <div className="glass rounded-2xl p-4 sm:p-6 animate-fade-in">
+      <div className="min-w-0 mb-4">
+        <h1 className="font-display text-sm font-semibold text-white/85 truncate">
+          {transfer.filename}
+        </h1>
+        <p className="text-xs text-white/35">
+          {transfer.fileCount} {plural(transfer.fileCount, 'plik', 'pliki', 'plików')} ·{' '}
+          {formatBytes(transfer.total_size)}
+        </p>
+      </div>
+
+      <div className="glass-accent rounded-xl p-4 mb-4 flex items-start gap-3">
+        <Flame className="w-5 h-5 text-accent-light shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm text-white/85 font-medium">Jednorazowy odbiór</p>
+          <p className="text-xs text-white/50 leading-relaxed">
+            Pobierz całość jednym kliknięciem. Po pobraniu pliki znikną z serwera, a link
+            przestanie działać.
+          </p>
+        </div>
+      </div>
+
+      {shown.length > 0 && (
+        <ul className="mb-4 space-y-1 max-h-60 overflow-y-auto custom-scrollbar">
+          {shown.map((entry) => (
+            <li
+              key={entry.id}
+              className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-white/[0.02] text-xs"
+            >
+              <span className="truncate text-white/65">{entry.path}</span>
+              <span className="shrink-0 text-white/30">{formatBytes(entry.size)}</span>
+            </li>
+          ))}
+          {files.length > shown.length && (
+            <li className="px-3 py-1 text-[11px] text-white/30">
+              i jeszcze {files.length - shown.length}{' '}
+              {plural(files.length - shown.length, 'plik', 'pliki', 'plików')}
+            </li>
+          )}
+        </ul>
+      )}
+
+      {isSender && pickup === 'idle' && (
+        <p className="mb-3 text-[11px] text-amber-300/75 text-center">
+          To Twój transfer. Pobranie z tej przeglądarki też go zamknie.
+        </p>
+      )}
+
+      {pickup === 'started' ? (
+        <div className="rounded-xl bg-white/[0.03] p-4 text-center">
+          <Loader2 className="w-5 h-5 text-accent animate-spin mx-auto mb-2" />
+          <p className="text-sm text-white/75">Pobieranie trwa</p>
+          <p className="text-xs text-white/40">
+            Gdy się skończy, transfer zniknie z serwera. Postęp widać w pobranych plikach
+            przeglądarki.
+          </p>
+        </div>
+      ) : (
+        <>
+          {pickup === 'interrupted' && (
+            <p className="mb-3 text-xs text-amber-300/80 text-center">
+              Pobieranie zostało przerwane. Pliki nadal czekają, możesz spróbować ponownie.
+            </p>
+          )}
+          <button
+            onClick={onDownload}
+            disabled={busyElsewhere}
+            className="w-full py-3.5 text-sm btn-primary flex items-center justify-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            {busyElsewhere
+              ? 'Ktoś właśnie pobiera ten transfer'
+              : `Pobierz i zamknij transfer (${formatBytes(transfer.total_size)})`}
+          </button>
+        </>
+      )}
+
+      <div className="mt-4 flex items-center justify-center gap-4 text-[11px] text-white/30 flex-wrap">
+        <span className="flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          zostało {formatRemaining(transfer.expires_at)}
+        </span>
+        {!transfer.isSingleFile && <span>pobierane jako ZIP</span>}
+      </div>
     </div>
   );
 }

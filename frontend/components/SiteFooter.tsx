@@ -10,12 +10,22 @@ const LINKS = [
   { label: 'Kontakt', href: 'https://hexart.pl/#contact', external: true },
 ];
 
-export default function SiteFooter() {
+/**
+ * `panel` stacks the footer when it lives inside the narrow desktop panel on
+ * the home page, instead of spreading it across the full width.
+ */
+export default function SiteFooter({ panel = false }: { panel?: boolean }) {
   return (
     <footer className="px-4 sm:px-6 py-8 border-t border-white/[0.06]">
-      <div className="max-w-xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-        <p className="text-[11px] text-white/25 text-center sm:text-left">
-          <span className="text-white/40">HEXART Studio</span> — automatyzacja AI, produkcja
+      <div
+        className={`max-w-xl mx-auto flex flex-col items-center justify-between gap-4 ${
+          panel ? 'sm:flex-row desk:flex-col' : 'sm:flex-row'
+        }`}
+      >
+        <p
+          className={`text-[11px] text-white/25 text-center ${panel ? 'sm:text-left desk:text-center' : 'sm:text-left'}`}
+        >
+          <span className="text-white/40">HEXART Studio</span>. Automatyzacja AI, produkcja
           wideo i XR. Od 2004 roku.
         </p>
 

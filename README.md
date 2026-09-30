@@ -25,6 +25,13 @@ link expires.
   so nothing arrives ready to double-click
 - **Self destructing** — files and metadata are deleted when the link expires, with a
   hard retention cap behind it
+- **Disappears after pickup** (optional) — a one-time link allows exactly one full
+  download, then the files are destroyed; a download that breaks off hands the
+  transfer back for another try
+- **Password** (optional) — recipients type it once; the server answers with a
+  cookie scoped to that transfer, so previews and downloads keep working
+- **Your transfers** — the sender's browser lists its links with a live countdown to
+  expiry and their pictures behind each strip; a click opens the link in a new tab
 - **Chunked and resilient** — 5MB chunks upload in parallel and retry on their own
 - **Up to 5GB per transfer**, no signup
 
@@ -49,6 +56,21 @@ link expires.
    size and records a CRC32 per file.
 4. Downloads are streamed. A ZIP is built on the fly (stored, not recompressed) so
    nothing is ever buffered in memory or staged on disk.
+
+Optional fields on `init`, both folded under "Zaawansowane" in the UI next to
+the expiry choice:
+
+- `oneTime: true` - the first full `GET /api/transfer/:id/download` claims the
+  transfer before its first byte (a second recipient gets `409`), destroys the
+  payload when the stream ends and leaves the row as `consumed` (`410`). A stream
+  that breaks off releases the claim. Recipients get no previews, single files,
+  folders or thumbnails; the owner token is exempt and never burns the link.
+- `password: "..."` (4 to 128 characters) - stored as an argon2id hash. Until it is
+  given, `GET /api/transfer/:id` answers `401 { passwordRequired: true }` and every
+  download route answers `401`. `POST /api/transfer/:id/unlock` with
+  `{ "password": "..." }` (or the `X-Owner-Token` header) sets an HttpOnly cookie
+  scoped to `/api/transfer/:id`. Wrong guesses are limited per IP (`RL_UNLOCK_*`)
+  and per transfer (12 per 15 minutes).
 
 Payloads are stored under generated names (`f00042.bin`); the path the sender chose
 lives only in the database. That is what makes path traversal structurally
@@ -126,6 +148,7 @@ thumbnail, but never past the link's expiry.
 | `AGENT_API_KEY`              | *(unset)*        | Enables agent mode — see below       |
 | `AGENT_MAX_TRANSFER_BYTES`   | `50GB`           | Agent ceiling on one transfer        |
 | `AGENT_MAX_EXPIRATION_DAYS`  | `60`             | Agent ceiling on link lifetime       |
+| `NEXT_PUBLIC_BOOKING_URL`    | hexart.pl contact | Frontend, build time: target of "Umów rozmowę" |
 
 Limits (transfer size, file count, expiry range, retention) live in
 `backend/src/config.ts`.

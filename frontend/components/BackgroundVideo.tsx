@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { DESK_QUERY, useMediaQuery } from '@/lib/hooks';
 
 /**
  * The studio's ambient reel, running full-frame behind the interface - the same
@@ -14,6 +16,8 @@ import { useEffect, useState } from 'react';
  */
 export default function BackgroundVideo() {
   const [show, setShow] = useState(false);
+  const pathname = usePathname();
+  const desk = useMediaQuery(DESK_QUERY);
 
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -27,7 +31,9 @@ export default function BackgroundVideo() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  if (!show) return null;
+  // On a large landscape screen the home page runs the studio stage full
+  // frame, which would hide the reel anyway - no point decoding it.
+  if (!show || (desk && pathname === '/')) return null;
 
   return (
     <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none" aria-hidden="true">

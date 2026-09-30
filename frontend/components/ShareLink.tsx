@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Copy, Loader2 } from 'lucide-react';
+import { Check, Copy, ExternalLink, Flame, KeyRound, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import { formatRemaining } from '@/lib/format';
 
@@ -9,9 +9,17 @@ interface ShareLinkProps {
   shareUrl: string;
   expiresAt?: string;
   isUploading?: boolean;
+  oneTime?: boolean;
+  passwordProtected?: boolean;
 }
 
-export default function ShareLink({ shareUrl, expiresAt, isUploading }: ShareLinkProps) {
+export default function ShareLink({
+  shareUrl,
+  expiresAt,
+  isUploading,
+  oneTime,
+  passwordProtected,
+}: ShareLinkProps) {
   const [copied, setCopied] = useState(false);
 
   const fullUrl =
@@ -47,32 +55,69 @@ export default function ShareLink({ shareUrl, expiresAt, isUploading }: ShareLin
             </span>
           </div>
 
-          <button
-            onClick={handleCopy}
-            className={clsx(
-              'px-5 py-3 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 shrink-0',
-              copied
-                ? 'bg-accent/20 text-accent-light border border-accent/30'
-                : 'btn-primary',
-            )}
-          >
-            {copied ? (
-              <>
-                <Check className="w-4 h-4" />
-                Skopiowano
-              </>
-            ) : (
-              <>
-                <Copy className="w-4 h-4" />
-                Kopiuj
-              </>
-            )}
-          </button>
+          <div className="flex gap-2 shrink-0">
+            {/* Opens the recipient's page in a new tab. Works mid-upload: the
+                page shows live progress, and this tab keeps sending. */}
+            <a
+              href={shareUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-outline flex-1 sm:flex-none px-4 py-3 rounded-xl text-sm flex items-center justify-center gap-2"
+              title="Otwórz link w nowej karcie"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Otwórz
+            </a>
+
+            <button
+              onClick={handleCopy}
+              className={clsx(
+                'flex-1 sm:flex-none px-5 py-3 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2',
+                copied
+                  ? 'bg-accent/20 text-accent-light border border-accent/30'
+                  : 'btn-primary',
+              )}
+            >
+              {copied ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  Skopiowano
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" />
+                  Kopiuj
+                </>
+              )}
+            </button>
+          </div>
         </div>
+
+        {(oneTime || passwordProtected) && (
+          <div className="mt-3 flex items-center gap-2 flex-wrap text-[11px]">
+            {oneTime && (
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-accent/10 px-2 py-1 text-accent-light/90">
+                <Flame className="w-3 h-3" />
+                Znika po odbiorze
+              </span>
+            )}
+            {passwordProtected && (
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.05] px-2 py-1 text-white/60">
+                <KeyRound className="w-3 h-3" />
+                Chroniony hasłem
+              </span>
+            )}
+          </div>
+        )}
 
         {isUploading && (
           <p className="mt-3 text-xs text-accent-light/60 text-center">
-            Wyślij go teraz — odbiorca widzi postęp na żywo i pobierze pliki, gdy tylko dotrą.
+            Wyślij go teraz. Odbiorca widzi postęp na żywo i pobierze pliki, gdy tylko dotrą.
+          </p>
+        )}
+        {oneTime && (
+          <p className="mt-2 text-[11px] text-white/35 text-center">
+            Otwarcie strony nie zużywa linku. Zużywa go dopiero pobranie.
           </p>
         )}
       </div>

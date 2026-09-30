@@ -4,11 +4,14 @@ export interface TransferHistoryItem {
   filename: string;
   expiresAt: string;
   createdAt: string;
-  status: 'uploading' | 'ready' | 'expired';
+  status: 'uploading' | 'ready' | 'consumed' | 'expired';
   /** Proves ownership when deleting. Never leaves this browser otherwise. */
   ownerToken?: string;
   size?: number;
   fileCount?: number;
+  /** Disappears after the first download. */
+  oneTime?: boolean;
+  passwordProtected?: boolean;
 }
 
 const STORAGE_KEY = 'we_transfer_history';

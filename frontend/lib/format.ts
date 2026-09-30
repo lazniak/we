@@ -85,3 +85,13 @@ export function formatNumber(num: number): string {
   if (num >= 1_000) return `${NUMBER_1.format(num / 1_000)} tys.`;
   return NUMBER.format(num);
 }
+
+/** Ticking countdown: "2 d 04:12:09", or "04:12:09" under a day. */
+export function formatCountdown(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '00:00:00';
+  const total = Math.floor(ms / 1000);
+  const days = Math.floor(total / 86_400);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const clock = `${pad(Math.floor((total % 86_400) / 3600))}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`;
+  return days > 0 ? `${days} d ${clock}` : clock;
+}

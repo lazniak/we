@@ -1,7 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, File, Folder, Plus, Upload, X } from 'lucide-react';
+import {
+  AlertCircle,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  File,
+  Flame,
+  Folder,
+  KeyRound,
+  Plus,
+  SlidersHorizontal,
+  Upload,
+  X,
+} from 'lucide-react';
 import clsx from 'clsx';
 import { formatBytes, plural } from '@/lib/format';
 import { TERMS_ACCEPT_KEY, TERMS_VERSION } from '@/lib/terms';
@@ -14,6 +27,10 @@ export interface FilesMetadata {
   /** Every folder seen while collecting, so empty ones survive the transfer. */
   dirs: string[];
   expirationDays: number;
+  /** The first full download destroys the transfer. */
+  oneTime: boolean;
+  /** Empty for an open link. */
+  password: string;
 }
 
 interface DropZoneProps {
@@ -29,6 +46,8 @@ interface FileWithPath {
 
 const MAX_SIZE = 5 * 1024 * 1024 * 1024;
 const MAX_FILES = 5000;
+const MIN_PASSWORD = 4;
+const EXPIRY_OPTIONS = [3, 4, 5, 6, 7];
 
 /** Recursively walks a dropped directory, recording files and folders. */
 async function readDirectory(
@@ -82,6 +101,14 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
   const [expirationDays, setExpirationDays] = useState(3);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  // Neither of these is remembered between visits: a link that silently
+  // burns itself or asks for a password must always be a deliberate choice.
+  const [oneTime, setOneTime] = useState(false);
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const passwordTooShort = password.length > 0 && password.length < MIN_PASSWORD;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const directoryInputRef = useRef<HTMLInputElement>(null);
@@ -292,13 +319,27 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
 
   const start = () => {
     if (selected.length === 0 || disabled || isProcessing || !termsAccepted) return;
+    if (passwordTooShort) {
+      setAdvancedOpen(true);
+      return;
+    }
     onFilesSelected({
       files: selected.map((item) => item.file),
       paths: selected.map((item) => item.path),
       dirs: folders,
       expirationDays,
+      oneTime,
+      password,
     });
   };
+
+  const advancedSummary = [
+    `${expirationDays} dni`,
+    oneTime ? 'znika po odbiorze' : null,
+    password ? 'hasło' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   const toggleTerms = () => {
     setTermsAccepted((previous) => {
@@ -315,31 +356,6 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
 
   return (
     <div className="w-full max-w-xl mx-auto space-y-4 px-4">
-      {/* Expiry */}
-      <div className="glass rounded-2xl p-3 sm:p-4 animate-fade-in">
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-          <span className="text-xs text-white/40 uppercase tracking-wider">Link wygasa za</span>
-          <div className="flex items-center gap-1 p-1 bg-white/[0.03] rounded-xl self-stretch sm:self-auto justify-between sm:justify-start">
-            {[3, 4, 5, 6, 7].map((day) => (
-              <button
-                key={day}
-                onClick={() => !disabled && handleExpirationChange(day)}
-                disabled={disabled}
-                className={clsx(
-                  'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                  expirationDays === day
-                    ? 'bg-white/10 text-white shadow-sm'
-                    : 'text-white/30 hover:text-white/50 hover:bg-white/[0.03]',
-                  disabled && 'opacity-50 cursor-not-allowed',
-                )}
-              >
-                {day} dni
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/*
         The hidden inputs live OUTSIDE the drop target on purpose. When they
         sat inside it, a programmatic .click() on the folder input bubbled up
@@ -451,6 +467,150 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
         </div>
       </div>
 
+      {/* Advanced: expiry, one-time pickup and password, folded away so the
+          first screen stays a single drop target. */}
+      <div className="glass rounded-2xl animate-fade-in">
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen((open) => !open)}
+          aria-expanded={advancedOpen}
+          aria-controls="advanced-options"
+          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left"
+        >
+          <span className="flex items-center gap-2 text-xs uppercase tracking-wider text-white/45">
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            Zaawansowane
+          </span>
+          <span className="flex items-center gap-2 min-w-0 text-[11px] text-white/35">
+            <span className="truncate">{advancedSummary}</span>
+            <ChevronDown
+              className={clsx(
+                'w-3.5 h-3.5 shrink-0 transition-transform duration-300',
+                advancedOpen && 'rotate-180',
+              )}
+            />
+          </span>
+        </button>
+
+        <div id="advanced-options" className={clsx('collapse-grid', advancedOpen && 'open')}>
+          <div>
+            <div className="px-4 pb-4 pt-1 space-y-4 border-t border-white/[0.06]">
+              {/* Expiry */}
+              <div className="pt-3 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                <span className="text-xs text-white/50">Link wygasa za</span>
+                <div className="flex items-center gap-1 p-1 bg-white/[0.03] rounded-xl self-stretch sm:self-auto justify-between sm:justify-start">
+                  {EXPIRY_OPTIONS.map((day) => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => !disabled && handleExpirationChange(day)}
+                      disabled={disabled}
+                      className={clsx(
+                        'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                        expirationDays === day
+                          ? 'bg-white/10 text-white shadow-sm'
+                          : 'text-white/30 hover:text-white/50 hover:bg-white/[0.03]',
+                        disabled && 'opacity-50 cursor-not-allowed',
+                      )}
+                    >
+                      {day} dni
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* One-time pickup */}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={oneTime}
+                onClick={() => setOneTime((value) => !value)}
+                className="w-full flex items-start gap-3 text-left group"
+              >
+                <span
+                  className={clsx(
+                    'mt-0.5 w-8 h-8 shrink-0 rounded-lg flex items-center justify-center transition-colors',
+                    oneTime ? 'bg-accent/15 text-accent-light' : 'bg-white/[0.04] text-white/35',
+                  )}
+                >
+                  <Flame className="w-4 h-4" />
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm text-white/85">Znika po odbiorze</span>
+                  <span className="block text-[11px] leading-relaxed text-white/35">
+                    Link działa do pierwszego pobrania. Potem pliki kasują się z serwera.
+                  </span>
+                </span>
+                <span
+                  aria-hidden="true"
+                  className={clsx(
+                    'mt-1.5 relative w-9 h-5 shrink-0 rounded-full transition-colors duration-200',
+                    oneTime ? 'bg-accent' : 'bg-white/10 group-hover:bg-white/15',
+                  )}
+                >
+                  <span
+                    className={clsx(
+                      'absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform duration-200',
+                      oneTime ? 'translate-x-4 bg-[#0a0a0c]' : 'bg-white/70',
+                    )}
+                  />
+                </span>
+              </button>
+
+              {/* Password */}
+              <div className="flex items-start gap-3">
+                <span
+                  className={clsx(
+                    'mt-0.5 w-8 h-8 shrink-0 rounded-lg flex items-center justify-center transition-colors',
+                    password ? 'bg-accent/15 text-accent-light' : 'bg-white/[0.04] text-white/35',
+                  )}
+                >
+                  <KeyRound className="w-4 h-4" />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <label htmlFor="transfer-password" className="block text-sm text-white/85 mb-1.5">
+                    Hasło do odbioru
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="transfer-password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value.slice(0, 128))}
+                      placeholder="bez hasła"
+                      autoComplete="new-password"
+                      spellCheck={false}
+                      className={clsx(
+                        'input-glass w-full rounded-lg pl-3 pr-10 py-2 text-sm placeholder:text-white/20',
+                        passwordTooShort && 'border-amber-400/40',
+                      )}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((value) => !value)}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-white/35 hover:text-white/70 transition-colors"
+                      aria-label={showPassword ? 'Ukryj hasło' : 'Pokaż hasło'}
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <p
+                    className={clsx(
+                      'mt-1.5 text-[11px] leading-relaxed',
+                      passwordTooShort ? 'text-amber-300/80' : 'text-white/35',
+                    )}
+                  >
+                    {passwordTooShort
+                      ? `Hasło musi mieć co najmniej ${MIN_PASSWORD} znaki.`
+                      : 'Odbiorca wpisze je przed pobraniem. Przekaż je innym kanałem niż link.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {error && (
         <div className="glass-strong rounded-2xl p-4 border border-red-500/20 bg-red-500/5 animate-fade-in">
           <div className="flex items-center gap-3">
@@ -531,8 +691,14 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
 
               <button
                 onClick={start}
-                disabled={disabled || isProcessing || !termsAccepted}
-                title={!termsAccepted ? 'Zaakceptuj regulamin, aby wysłać' : undefined}
+                disabled={disabled || isProcessing || !termsAccepted || passwordTooShort}
+                title={
+                  !termsAccepted
+                    ? 'Zaakceptuj regulamin, aby wysłać'
+                    : passwordTooShort
+                      ? 'Hasło jest za krótkie'
+                      : undefined
+                }
                 className="btn-primary px-8 py-3 rounded-xl font-medium text-sm shadow-lg shadow-accent/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Wyślij
