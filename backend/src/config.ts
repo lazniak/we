@@ -32,6 +32,21 @@ export const MIN_EXPIRATION_DAYS = 1;
 export const MAX_EXPIRATION_DAYS = 7;
 export const DEFAULT_EXPIRATION_DAYS = 3;
 
+/** Optional password on a transfer. Short enough to dictate, long enough to matter. */
+export const MIN_PASSWORD_LENGTH = 4;
+export const MAX_PASSWORD_LENGTH = 128;
+
+/** Wrong passwords a single transfer tolerates per window before it stops listening. */
+export const UNLOCK_MAX_FAILURES = 12;
+export const UNLOCK_FAILURE_WINDOW_MS = 15 * 60 * 1000;
+
+/**
+ * A one-time transfer is claimed when its download starts. A claim that never
+ * finished (crashed server, lost socket that nobody noticed) is released after
+ * this long, so the recipient can try again.
+ */
+export const ONE_TIME_CLAIM_TTL_MS = 6 * 60 * 60 * 1000;
+
 /* ------------------------------------------------------------ agent mode */
 
 /**
@@ -96,7 +111,15 @@ export const RATE_LIMIT_MAX_TRANSFERS = 60;
  * above anything a legitimate client produces; the expensive paths (creating a
  * transfer, server-side rendering) are held much tighter.
  */
-export type RateCategory = 'init' | 'upload' | 'mutate' | 'read' | 'download' | 'render' | 'thumb';
+export type RateCategory =
+  | 'init'
+  | 'upload'
+  | 'mutate'
+  | 'read'
+  | 'download'
+  | 'render'
+  | 'thumb'
+  | 'unlock';
 
 function rateRule(key: string, defMax: number, defWindowMs: number): { max: number; windowMs: number } {
   const max = Number(process.env[`RL_${key}_MAX`]);
@@ -129,6 +152,9 @@ export const RATE_LIMITS: Record<RateCategory, { max: number; windowMs: number }
   // Thumbnails: a gallery asks for one per tile, and almost every request is
   // a cache hit. Generation itself is bounded by THUMB_CONCURRENCY, not here.
   thumb: rateRule('THUMB', 1200, 60_000),
+  // Password attempts. Each one costs an argon2 hash, and together with the
+  // per-transfer failure cap it keeps guessing slower than a link's lifetime.
+  unlock: rateRule('UNLOCK', 20, 60_000),
 };
 
 /**

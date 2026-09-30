@@ -75,11 +75,17 @@ function text(value: string): Uint8Array {
   return new TextEncoder().encode(value);
 }
 
-async function createTransfer(payloads: Payload[], dirs: string[] = [], expirationDays = 3) {
+async function createTransfer(
+  payloads: Payload[],
+  dirs: string[] = [],
+  expirationDays = 3,
+  extra: Record<string, unknown> = {},
+) {
   const res = await fetch(`${BASE}/api/transfer/init`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      ...extra,
       expirationDays,
       dirs,
       files: payloads.map((p) => ({ path: p.path, size: p.data.length, type: '' })),
@@ -104,15 +110,19 @@ async function createTransfer(payloads: Payload[], dirs: string[] = [], expirati
   // On a host with clamd the transfer passes through a brief "scanning" state
   // before it is downloadable. Wait it out so the assertions see the final
   // verdict rather than racing the scanner.
-  await waitUntilReady(init.transferId);
+  await waitUntilReady(init.transferId, init.ownerToken);
 
   return init;
 }
 
 /** Polls until the transfer leaves the scanning state. */
-async function waitUntilReady(transferId: string): Promise<string> {
+async function waitUntilReady(transferId: string, ownerToken?: string): Promise<string> {
   for (let i = 0; i < 100; i++) {
-    const info = await (await fetch(`${BASE}/api/transfer/${transferId}`)).json();
+    const info = await (
+      await fetch(`${BASE}/api/transfer/${transferId}`, {
+        headers: ownerToken ? { 'X-Owner-Token': ownerToken } : undefined,
+      })
+    ).json();
     if (info.status !== 'scanning') return info.status;
     await Bun.sleep(100);
   }
@@ -319,6 +329,212 @@ describe('upload → download round trip', () => {
     expect(allowed.status).toBe(200);
     expect(existsSync(join(uploadsDir, transferId))).toBe(false);
     expect((await fetch(`${BASE}/api/transfer/${transferId}`)).status).toBe(404);
+  });
+});
+
+describe('one-time transfers', () => {
+  it('hands the package over once, then destroys it', async () => {
+    const init = await createTransfer(
+      [
+        { path: 'raz/a.txt', data: text('pierwszy') },
+        { path: 'raz/b.txt', data: text('drugi') },
+      ],
+      [],
+      3,
+      { oneTime: true },
+    );
+    const id = init.transferId;
+
+    const info = await (await fetch(`${BASE}/api/transfer/${id}`)).json();
+    expect(info.oneTime).toBe(true);
+    expect(info.claimed).toBe(false);
+    // The recipient sees names, never previews.
+    expect(info.entries.every((e: { previewable: boolean }) => !e.previewable)).toBe(true);
+
+    const fileEntry = info.entries.find((e: { isDir: boolean }) => !e.isDir);
+    for (const path of [
+      `/api/transfer/${id}/file/${fileEntry.id}`,
+      `/api/transfer/${id}/preview/${fileEntry.id}`,
+      `/api/transfer/${id}/thumb/${fileEntry.id}`,
+      `/api/transfer/${id}/download?path=raz`,
+    ]) {
+      expect((await fetch(`${BASE}${path}`)).status).toBe(403);
+    }
+
+    // HEAD looks without using the link up.
+    expect((await fetch(`${BASE}/api/transfer/${id}/download`, { method: 'HEAD' })).status).toBe(200);
+
+    const first = await fetch(`${BASE}/api/transfer/${id}/download`);
+    expect(first.status).toBe(200);
+    const zip = await JSZip.loadAsync(await first.arrayBuffer());
+    expect(await zip.file('raz/a.txt')!.async('string')).toBe('pierwszy');
+
+    // Destruction happens as the stream ends; give it a beat.
+    let status = 0;
+    for (let i = 0; i < 40 && status !== 410; i++) {
+      status = (await fetch(`${BASE}/api/transfer/${id}`)).status;
+      if (status !== 410) await Bun.sleep(50);
+    }
+    const gone = await fetch(`${BASE}/api/transfer/${id}`);
+    expect(gone.status).toBe(410);
+    expect((await gone.json()).status).toBe('consumed');
+    expect(existsSync(join(uploadsDir, id))).toBe(false);
+    expect((await fetch(`${BASE}/api/transfer/${id}/download`)).status).toBe(410);
+  });
+
+  it('gives a single file back raw and still burns it', async () => {
+    const init = await createTransfer([{ path: 'solo.txt', data: text('solo') }], [], 3, {
+      oneTime: true,
+    });
+    const res = await fetch(`${BASE}/api/transfer/${init.transferId}/download`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('solo');
+    expect(res.headers.get('x-archive-size')).toBe('4');
+
+    let status = 0;
+    for (let i = 0; i < 40 && status !== 410; i++) {
+      status = (await fetch(`${BASE}/api/transfer/${init.transferId}`)).status;
+      if (status !== 410) await Bun.sleep(50);
+    }
+    expect(status).toBe(410);
+  });
+
+  it('releases the transfer when the download breaks off, and turns away a second one meanwhile', async () => {
+    const big = new Uint8Array(24 * 1024 * 1024).fill(3);
+    const init = await createTransfer([{ path: 'duzy.bin', data: big }], [], 3, { oneTime: true });
+    const id = init.transferId;
+
+    const controller = new AbortController();
+    const res = await fetch(`${BASE}/api/transfer/${id}/download`, { signal: controller.signal });
+    expect(res.status).toBe(200);
+    const reader = res.body!.getReader();
+    await reader.read();
+
+    // While the first download runs, nobody else gets in.
+    const second = await fetch(`${BASE}/api/transfer/${id}/download`);
+    expect(second.status).toBe(409);
+    await second.arrayBuffer();
+    const during = await (await fetch(`${BASE}/api/transfer/${id}`)).json();
+    expect(during.claimed).toBe(true);
+
+    controller.abort();
+    await reader.cancel().catch(() => undefined);
+
+    let info = { status: '', claimed: true };
+    for (let i = 0; i < 60 && info.claimed; i++) {
+      await Bun.sleep(50);
+      info = await (await fetch(`${BASE}/api/transfer/${id}`)).json();
+    }
+    expect(info.status).toBe('ready');
+    expect(info.claimed).toBe(false);
+    expect(existsSync(join(uploadsDir, id))).toBe(true);
+
+    const retry = await fetch(`${BASE}/api/transfer/${id}/download`);
+    expect((await retry.arrayBuffer()).byteLength).toBe(big.length);
+  });
+
+  it('lets the sender look without using the link up', async () => {
+    const init = await createTransfer([{ path: 'moje.txt', data: text('moje') }], [], 3, {
+      oneTime: true,
+    });
+    const owner = { 'X-Owner-Token': init.ownerToken };
+
+    const info = await (await fetch(`${BASE}/api/transfer/${init.transferId}`, { headers: owner })).json();
+    expect(info.isOwner).toBe(true);
+    const own = await fetch(`${BASE}/api/transfer/${init.transferId}/download`, { headers: owner });
+    expect(await own.text()).toBe('moje');
+    await Bun.sleep(100);
+
+    const still = await (await fetch(`${BASE}/api/transfer/${init.transferId}`)).json();
+    expect(still.status).toBe('ready');
+  });
+});
+
+describe('password protected transfers', () => {
+  it('rejects passwords that are too short', async () => {
+    const res = await fetch(`${BASE}/api/transfer/init`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: 'abc', files: [{ path: 'a.txt', size: 1 }] }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('opens only with the right password, through a scoped cookie', async () => {
+    const init = await createTransfer([{ path: 'tajne.txt', data: text('tajne dane') }], [], 3, {
+      password: 'kotlet schabowy',
+    });
+    const id = init.transferId;
+
+    const locked = await fetch(`${BASE}/api/transfer/${id}`);
+    expect(locked.status).toBe(401);
+    const lockedBody = await locked.json();
+    expect(lockedBody.passwordRequired).toBe(true);
+    expect(lockedBody.filename).toBeUndefined();
+    expect(lockedBody.entries).toBeUndefined();
+
+    expect((await fetch(`${BASE}/api/transfer/${id}/download`)).status).toBe(401);
+
+    const wrong = await fetch(`${BASE}/api/transfer/${id}/unlock`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: 'mielony' }),
+    });
+    expect(wrong.status).toBe(403);
+    expect(wrong.headers.get('set-cookie')).toBeNull();
+
+    const right = await fetch(`${BASE}/api/transfer/${id}/unlock`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: 'kotlet schabowy' }),
+    });
+    expect(right.status).toBe(200);
+    const setCookie = right.headers.get('set-cookie') || '';
+    expect(setCookie).toContain('HttpOnly');
+    expect(setCookie).toContain(`Path=/api/transfer/${id}`);
+    const cookie = setCookie.split(';')[0];
+
+    const info = await fetch(`${BASE}/api/transfer/${id}`, { headers: { Cookie: cookie } });
+    expect(info.status).toBe(200);
+    expect((await info.json()).passwordProtected).toBe(true);
+
+    const file = await fetch(`${BASE}/api/transfer/${id}/download`, { headers: { Cookie: cookie } });
+    expect(await file.text()).toBe('tajne dane');
+
+    // A cookie for another transfer, or a forged one, opens nothing.
+    const forged = await fetch(`${BASE}/api/transfer/${id}/download`, {
+      headers: { Cookie: `we_unlock_${id}=${'x'.repeat(32)}` },
+    });
+    expect(forged.status).toBe(401);
+  });
+
+  it('lets the owner token unlock without the password', async () => {
+    const init = await createTransfer([{ path: 'x.txt', data: text('x') }], [], 3, {
+      password: 'haslo1234',
+    });
+    const res = await fetch(`${BASE}/api/transfer/${init.transferId}/unlock`, {
+      method: 'POST',
+      headers: { 'X-Owner-Token': init.ownerToken },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('set-cookie')).toContain(`we_unlock_${init.transferId}=`);
+  });
+
+  it('stops listening after a burst of wrong guesses', async () => {
+    const init = await createTransfer([{ path: 'y.txt', data: text('y') }], [], 3, {
+      password: 'poprawne',
+    });
+    let last = 0;
+    for (let i = 0; i < 14; i++) {
+      last = (
+        await fetch(`${BASE}/api/transfer/${init.transferId}/unlock`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: `zle-${i}` }),
+        })
+      ).status;
+    }
+    expect(last).toBe(429);
   });
 });
 

@@ -8,16 +8,22 @@
  * routed straight from Bun.serve and build their headers up front.
  */
 
-import { ALLOWED_ORIGINS } from '../config';
+import { ALLOWED_ORIGINS, ONE_TIME_CLAIM_TTL_MS } from '../config';
 import {
+  claimOneTime,
   getTransfer,
   getTransferFileById,
   getTransferFiles,
   incrementDownloadCount,
   isExpired,
+  markConsumed,
+  releaseOneTime,
   type Transfer,
   type TransferFile,
 } from '../db';
+import { isOwner, isUnlocked } from '../lib/access';
+import { broadcastProgress } from '../websocket';
+import { purgeTransferFromDisk } from './transfer';
 import { ensureCrc } from '../lib/fileCrc';
 import {
   contentDisposition,
@@ -453,6 +459,171 @@ async function serveArchive(
   }
 }
 
+/* ------------------------------------------------------------ one-time */
+
+/**
+ * Passes a body through and reports how it ended: true once the last byte
+ * has been handed to the connection, false if the client went away first.
+ * Reported exactly once, whichever signal arrives first.
+ */
+function watchStream(
+  source: ReadableStream<Uint8Array>,
+  signal: AbortSignal,
+  onEnd: (completed: boolean) => void,
+): ReadableStream<Uint8Array> {
+  const reader = source.getReader();
+  let settled = false;
+  const settle = (completed: boolean) => {
+    if (settled) return;
+    settled = true;
+    onEnd(completed);
+  };
+
+  signal.addEventListener('abort', () => settle(false), { once: true });
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          controller.close();
+          settle(true);
+          return;
+        }
+        controller.enqueue(value);
+      } catch (error) {
+        settle(false);
+        controller.error(error);
+      }
+    },
+    cancel(reason) {
+      settle(false);
+      return reader.cancel(reason);
+    },
+  });
+}
+
+/**
+ * The one download a one-time transfer allows. The claim is taken before the
+ * first byte, so a second recipient is turned away while this one runs. A
+ * finished stream destroys the payload; a broken one hands the transfer back,
+ * so a dropped connection does not cost the recipient their files.
+ *
+ * Ranges are ignored on purpose: resuming would mean a second download.
+ */
+async function serveOneTime(
+  transfer: Transfer,
+  req: Request,
+  origin: string | null,
+  headOnly: boolean,
+): Promise<Response> {
+  const files = getTransferFiles(transfer.id);
+  const payloads = files.filter((f) => !f.is_dir);
+  const single = payloads.length === 1 && files.length === 1 && !payloads[0].is_dangerous;
+  const zipName = transfer.filename.toLowerCase().endsWith('.zip')
+    ? `${transfer.filename.slice(0, -4)}_files.zip`
+    : `${transfer.filename}.zip`;
+
+  if (headOnly) {
+    if (single) return serveSingleFile(transfer, payloads[0].id, false, null, origin, true);
+    const entries = await buildZipEntries(transfer.id, files, null);
+    return zipResponse(entries, zipName, new Date(transfer.created_at), origin, true);
+  }
+
+  if (!claimOneTime(transfer.id, ONE_TIME_CLAIM_TTL_MS)) {
+    return jsonError('Ktoś właśnie pobiera ten jednorazowy transfer', 409, origin);
+  }
+
+  const finish = (completed: boolean) => {
+    if (!completed) {
+      releaseOneTime(transfer.id);
+      console.log(`↩️  One-time ${transfer.id}: download broke off, released`);
+      return;
+    }
+    markConsumed(transfer.id);
+    purgeTransferFromDisk(transfer.id);
+    broadcastProgress(transfer.id, { type: 'error', transferId: transfer.id, status: 'consumed' });
+    console.log(`🔥 One-time ${transfer.id}: collected and destroyed`);
+  };
+
+  try {
+    if (single) {
+      const file = payloads[0];
+      const path = storagePath(transfer.id, file.storage_name);
+      const size = fileSizeOrNull(path);
+      if (size === null) {
+        releaseOneTime(transfer.id);
+        return jsonError('File not found', 404, origin);
+      }
+
+      incrementDownloadCount(transfer.id);
+      const headers = withCommonHeaders(
+        {
+          'Content-Type': safeDownloadMime(file.rel_path),
+          'Content-Disposition': contentDisposition(basenameOf(file.rel_path)),
+          'Content-Security-Policy': ATTACHMENT_CSP,
+          // Streamed bodies go out chunked, so the size travels on its own.
+          'X-Archive-Size': String(size),
+          'Access-Control-Expose-Headers': 'X-Archive-Size, Content-Disposition',
+        },
+        origin,
+      );
+      const body = watchStream(
+        Bun.file(path).stream() as ReadableStream<Uint8Array>,
+        req.signal,
+        finish,
+      );
+      return new Response(body, { headers });
+    }
+
+    incrementDownloadCount(transfer.id);
+    const entries = await buildZipEntries(transfer.id, files, null);
+    const plan = planZip(entries, new Date(transfer.created_at));
+    const headers = withCommonHeaders(
+      {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': contentDisposition(zipName),
+        'Content-Security-Policy': ATTACHMENT_CSP,
+        'X-Archive-Size': String(plan.totalSize),
+        'Access-Control-Expose-Headers': 'X-Archive-Size, Content-Disposition',
+      },
+      origin,
+    );
+    return new Response(watchStream(createZipStream(plan), req.signal, finish), { headers });
+  } catch (error) {
+    releaseOneTime(transfer.id);
+    throw error;
+  }
+}
+
+/**
+ * Password and one-time rules, shared by every download style route. Returns
+ * a refusal, or null when the request may go ahead.
+ */
+function gate(
+  transfer: Transfer,
+  req: Request,
+  kind: string,
+  hasSubPath: boolean,
+  origin: string | null,
+): Response | null {
+  if (transfer.status === 'consumed') {
+    return jsonError('Ten jednorazowy transfer został już odebrany', 410, origin);
+  }
+  if (!isUnlocked(transfer, req.headers)) {
+    return jsonError('Ten transfer jest chroniony hasłem', 401, origin);
+  }
+  // One-time: the whole package, once. Previews, single files, folders and
+  // thumbnails would each let the content out without "using" the link. The
+  // sender's own browser (owner token) is not held to this.
+  if (transfer.one_time === 1 && !isOwner(transfer, req.headers)) {
+    if (kind !== 'download' || hasSubPath) {
+      return jsonError('Jednorazowy transfer: dostępne jest tylko pobranie całości', 403, origin);
+    }
+  }
+  return null;
+}
+
 /* --------------------------------------------------------------- router */
 
 const ROUTE = /^\/api\/transfer\/([^/]+)\/(download|file|preview|render|archive|thumb)(?:\/([^/]+))?$/;
@@ -483,6 +654,8 @@ export async function handleDownloadRequest(
       return jsonError('Transfer not found', 404, origin);
     }
     if (isExpired(transfer)) return jsonError('This transfer has expired', 410, origin);
+    const refused = gate(transfer, req, 'asset', false, origin);
+    if (refused) return refused;
     if (transfer.status !== 'ready') return jsonError('Transfer not ready', 425, origin);
     return serveAsset(transfer, Number(assetMatch[2]), req.headers.get('range'), origin, req.method === 'HEAD');
   }
@@ -509,6 +682,16 @@ export async function handleDownloadRequest(
   const transfer = getTransfer(rawId);
   if (!transfer) return jsonError('Transfer not found', 404, origin);
   if (isExpired(transfer)) return jsonError('This transfer has expired', 410, origin);
+
+  const refused = gate(
+    transfer,
+    req,
+    kind,
+    url.searchParams.has('path') || url.searchParams.has('fileId'),
+    origin,
+  );
+  if (refused) return refused;
+
   if (transfer.status === 'infected') {
     return jsonError('Pliki zostaly usuniete: antywirus wykryl zagrozenie', 451, origin);
   }
@@ -518,6 +701,11 @@ export async function handleDownloadRequest(
   if (transfer.status !== 'ready') return jsonError('Transfer not ready', 425, origin);
 
   const range = req.headers.get('range');
+
+  // The sender's own browser never burns their one-time link.
+  if (kind === 'download' && transfer.one_time === 1 && !isOwner(transfer, req.headers)) {
+    return serveOneTime(transfer, req, origin, headOnly);
+  }
 
   if (kind === 'render') {
     return serveRender(transfer, Number(param), range, origin, headOnly);

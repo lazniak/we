@@ -16,6 +16,18 @@ import {
   agentModeEnabled,
 } from '../config';
 import {
+  checkPassword,
+  clearUnlockFailures,
+  hashPassword,
+  isOwner,
+  isSecureRequest,
+  isUnlocked,
+  recordUnlockFailure,
+  unlockBlockedFor,
+  unlockCookie,
+  validPassword,
+} from '../lib/access';
+import {
   addTransferFile,
   clearChunks,
   completeTransfer,
@@ -288,6 +300,16 @@ transferRoutes.post('/init', rateLimit('init'), async (c) => {
       ? Math.max(MIN_EXPIRATION_DAYS, Math.min(limits.maxDays, Math.floor(requestedDays)))
       : DEFAULT_EXPIRATION_DAYS;
 
+    // Optional extras from the "advanced" panel. A password shorter than the
+    // minimum is refused rather than silently dropped: the sender believes the
+    // link is protected.
+    const oneTime = body.oneTime === true;
+    const rawPassword = typeof body.password === 'string' ? body.password : '';
+    if (rawPassword && !validPassword(rawPassword)) {
+      return c.json({ error: 'Hasło musi mieć od 4 do 128 znaków' }, 400);
+    }
+    const passwordHash = rawPassword ? await hashPassword(rawPassword) : null;
+
     const transferId = nanoid(12);
     const ownerToken = nanoid(32);
     const chunksTotal = sizes.reduce(
@@ -305,6 +327,9 @@ transferRoutes.post('/init', rateLimit('init'), async (c) => {
       expirationDays: days,
       ownerToken,
       fileCount: incoming.length,
+      oneTime,
+      passwordHash,
+      unlockKey: passwordHash ? nanoid(32) : null,
     });
 
     // Explicit directory rows keep empty folders alive through the round trip.
@@ -352,7 +377,8 @@ transferRoutes.post('/init', rateLimit('init'), async (c) => {
 
     console.log(
       `📤 Transfer ${transferId}: ${incoming.length} file(s), ` +
-        `${(totalSize / 1024 / 1024).toFixed(1)} MB, ${days}d${agent ? ' [agent]' : ''}`,
+        `${(totalSize / 1024 / 1024).toFixed(1)} MB, ${days}d${agent ? ' [agent]' : ''}` +
+        `${oneTime ? ' [one-time]' : ''}${passwordHash ? ' [password]' : ''}`,
     );
 
     return c.json({
@@ -360,6 +386,8 @@ transferRoutes.post('/init', rateLimit('init'), async (c) => {
       ownerToken,
       shareUrl: `/${transferId}`,
       expiresAt: getTransfer(transferId)!.expires_at,
+      oneTime,
+      passwordProtected: Boolean(passwordHash),
       chunkSize: CHUNK_SIZE,
       totalSize,
       files: filePaths.map((path, index) => ({
@@ -384,7 +412,7 @@ transferRoutes.put('/:id/file/:index/chunk/:chunkIndex', rateLimit('upload'), as
     const transfer = loadTransfer(id);
     if (!transfer) return c.json({ error: 'Transfer not found' }, 404);
     if (isExpired(transfer)) return c.json({ error: 'Transfer expired' }, 410);
-    if (transfer.status === 'ready') {
+    if (transfer.status === 'ready' || transfer.status === 'consumed') {
       return c.json({ error: 'Transfer already complete' }, 409);
     }
 
@@ -460,6 +488,7 @@ transferRoutes.post('/:id/complete', rateLimit('mutate'), async (c) => {
     const transfer = loadTransfer(id);
     if (!transfer) return c.json({ error: 'Transfer not found' }, 404);
     if (isExpired(transfer)) return c.json({ error: 'Transfer expired' }, 410);
+    if (transfer.status === 'consumed') return c.json({ error: 'Transfer already collected' }, 410);
 
     if (transfer.status === 'ready') {
       return c.json({
@@ -566,6 +595,32 @@ transferRoutes.get('/:id', rateLimit('read'), (c) => {
     return c.json({ id: transfer.id, status: 'expired', error: 'This transfer has expired' }, 410);
   }
 
+  // A collected one-time transfer says only that: no names, no sizes.
+  if (transfer.status === 'consumed') {
+    return c.json(
+      { id: transfer.id, status: 'consumed', error: 'This one-time transfer was already collected' },
+      410,
+    );
+  }
+
+  const headers = c.req.raw.headers;
+  const owner = isOwner(transfer, headers);
+  const oneTime = transfer.one_time === 1;
+
+  // Behind a password the page learns only what it needs to draw the lock.
+  if (!isUnlocked(transfer, headers)) {
+    return c.json(
+      {
+        id: transfer.id,
+        status: 'locked',
+        passwordRequired: true,
+        oneTime,
+        expires_at: transfer.expires_at,
+      },
+      401,
+    );
+  }
+
   const progress =
     transfer.chunks_total > 0
       ? Math.min(100, Math.round((transfer.chunks_completed / transfer.chunks_total) * 100))
@@ -573,7 +628,9 @@ transferRoutes.get('/:id', rateLimit('read'), (c) => {
 
   const rows = transfer.status === 'ready' ? getTransferFiles(id) : [];
   const entries = rows.map((file) => {
-    const kind = file.is_dir ? null : previewKind(file.rel_path);
+    // One-time transfers are handed over whole, never peeked at: no previews
+    // or thumbnails for the recipient. The sender still sees their own files.
+    const kind = file.is_dir || (oneTime && !owner) ? null : previewKind(file.rel_path);
     return {
       id: file.id,
       index: file.file_index,
@@ -603,6 +660,11 @@ transferRoutes.get('/:id', rateLimit('read'), (c) => {
     expires_at: transfer.expires_at,
     download_count: transfer.download_count,
     threatName: transfer.threat_name,
+    oneTime,
+    passwordProtected: Boolean(transfer.password_hash),
+    /** A one-time download is running right now. */
+    claimed: oneTime && transfer.claimed_at !== null,
+    isOwner: owner,
     progress,
     entries,
     fileCount: fileEntries.length,
@@ -612,6 +674,51 @@ transferRoutes.get('/:id', rateLimit('read'), (c) => {
     isLegacyArchive:
       transfer.status === 'ready' && rows.length === 0 && existsSync(legacyArchivePath(id)),
   });
+});
+
+/* ---------------------------------------------------------------- unlock */
+
+/**
+ * POST /:id/unlock - trades the password (or the owner token) for a cookie
+ * that opens this one transfer. Wrong answers are throttled per IP by the
+ * rate limiter and per transfer here, so spreading guesses over many
+ * addresses does not help either.
+ */
+transferRoutes.post('/:id/unlock', rateLimit('unlock'), async (c) => {
+  const { id } = c.req.param();
+  const transfer = loadTransfer(id);
+  if (!transfer) return c.json({ error: 'Transfer not found' }, 404);
+  if (isExpired(transfer)) return c.json({ error: 'Transfer expired' }, 410);
+  if (transfer.status === 'consumed') {
+    return c.json({ status: 'consumed', error: 'Transfer already collected' }, 410);
+  }
+  if (!transfer.password_hash) return c.json({ success: true });
+
+  const headers = c.req.raw.headers;
+  const secure = isSecureRequest(c.req.url, headers);
+
+  if (isOwner(transfer, headers)) {
+    c.header('Set-Cookie', unlockCookie(transfer, secure));
+    return c.json({ success: true });
+  }
+
+  const wait = unlockBlockedFor(id);
+  if (wait > 0) {
+    c.header('Retry-After', String(wait));
+    return c.json({ error: 'Za dużo prób. Spróbuj za kilka minut.' }, 429);
+  }
+
+  const body = await c.req.json().catch(() => null);
+  const password = typeof body?.password === 'string' ? body.password : '';
+
+  if (!password || !(await checkPassword(password, transfer.password_hash))) {
+    recordUnlockFailure(id);
+    return c.json({ error: 'Nieprawidłowe hasło' }, 403);
+  }
+
+  clearUnlockFailures(id);
+  c.header('Set-Cookie', unlockCookie(transfer, secure));
+  return c.json({ success: true });
 });
 
 /* ---------------------------------------------------------------- delete */

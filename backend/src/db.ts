@@ -24,6 +24,8 @@ export type TransferStatus =
   | 'ready'
   /** A threat was named; the payload has been destroyed. */
   | 'infected'
+  /** One-time transfer, downloaded once and destroyed. */
+  | 'consumed'
   | 'expired';
 
 export interface Transfer {
@@ -41,6 +43,14 @@ export interface Transfer {
   file_count: number;
   completed_at: string | null;
   threat_name: string | null;
+  /** 1 when the first full download destroys the transfer. */
+  one_time: number;
+  /** argon2id hash, or null for an open link. */
+  password_hash: string | null;
+  /** What the unlock cookie must carry. Set only on password protected rows. */
+  unlock_key: string | null;
+  /** When a one-time download started; null while nobody is downloading. */
+  claimed_at: string | null;
 }
 
 export interface Stats {
@@ -162,6 +172,10 @@ export function initDb() {
   addColumn('transfers', 'file_count', 'INTEGER DEFAULT 0');
   addColumn('transfers', 'completed_at', 'DATETIME');
   addColumn('transfers', 'threat_name', 'TEXT');
+  addColumn('transfers', 'one_time', 'INTEGER DEFAULT 0');
+  addColumn('transfers', 'password_hash', 'TEXT');
+  addColumn('transfers', 'unlock_key', 'TEXT');
+  addColumn('transfers', 'claimed_at', 'DATETIME');
   addColumn('transfer_files', 'file_index', 'INTEGER DEFAULT 0');
   addColumn('transfer_files', 'rel_path', 'TEXT');
   addColumn('transfer_files', 'is_dir', 'INTEGER DEFAULT 0');
@@ -212,6 +226,9 @@ export function createTransfer(params: {
   expirationDays: number;
   ownerToken: string;
   fileCount: number;
+  oneTime?: boolean;
+  passwordHash?: string | null;
+  unlockKey?: string | null;
 }): Transfer {
   const expiresAt = new Date(
     Date.now() + params.expirationDays * 24 * 60 * 60 * 1000,
@@ -219,8 +236,9 @@ export function createTransfer(params: {
 
   db.run(
     `INSERT INTO transfers
-       (id, filename, total_size, chunks_total, expires_at, status, owner_token, file_count)
-     VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
+       (id, filename, total_size, chunks_total, expires_at, status, owner_token, file_count,
+        one_time, password_hash, unlock_key)
+     VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
     [
       params.id,
       params.filename,
@@ -229,6 +247,9 @@ export function createTransfer(params: {
       expiresAt,
       params.ownerToken,
       params.fileCount,
+      params.oneTime ? 1 : 0,
+      params.passwordHash ?? null,
+      params.unlockKey ?? null,
     ],
   );
 
@@ -325,6 +346,33 @@ export function setTransferExpiry(id: string, days: number): Transfer | undefine
   const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
   db.run('UPDATE transfers SET expires_at = ? WHERE id = ?', [expiresAt, id]);
   return getTransfer(id);
+}
+
+/**
+ * Reserves a one-time transfer for the download that is about to start.
+ *
+ * Atomic: of two recipients clicking at the same moment exactly one wins. A
+ * claim older than staleMs counts as abandoned and can be taken over.
+ */
+export function claimOneTime(id: string, staleMs: number): boolean {
+  const stale = `-${Math.max(1, Math.round(staleMs / 1000))} seconds`;
+  const result = db.run(
+    `UPDATE transfers SET claimed_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND one_time = 1 AND status = 'ready'
+        AND (claimed_at IS NULL OR datetime(claimed_at) <= datetime('now', ?))`,
+    [id, stale],
+  );
+  return result.changes === 1;
+}
+
+/** The download broke off before the last byte: the transfer is available again. */
+export function releaseOneTime(id: string): void {
+  db.run(`UPDATE transfers SET claimed_at = NULL WHERE id = ? AND status = 'ready'`, [id]);
+}
+
+/** The single permitted download went through. The row stays to say so. */
+export function markConsumed(id: string): void {
+  db.run(`UPDATE transfers SET status = 'consumed', claimed_at = NULL WHERE id = ?`, [id]);
 }
 
 export function deleteTransfer(id: string): void {
