@@ -117,15 +117,46 @@ thumbnail, but never past the link's expiry.
 
 ### Configuration
 
-| Variable          | Default          | Purpose                         |
-| ----------------- | ---------------- | ------------------------------- |
-| `PORT`            | `3001`           | Backend port                    |
-| `UPLOADS_DIR`     | `<repo>/uploads` | Where payloads are stored       |
-| `DATA_DIR`        | `<repo>/data`    | Where the SQLite database lives |
-| `ALLOWED_ORIGINS` | localhost + prod | Comma separated CORS allow-list |
+| Variable                     | Default          | Purpose                              |
+| ---------------------------- | ---------------- | ------------------------------------ |
+| `PORT`                       | `3001`           | Backend port                         |
+| `UPLOADS_DIR`                | `<repo>/uploads` | Where payloads are stored            |
+| `DATA_DIR`                   | `<repo>/data`    | Where the SQLite database lives      |
+| `ALLOWED_ORIGINS`            | localhost + prod | Comma separated CORS allow-list      |
+| `AGENT_API_KEY`              | *(unset)*        | Enables agent mode — see below       |
+| `AGENT_MAX_TRANSFER_BYTES`   | `50GB`           | Agent ceiling on one transfer        |
+| `AGENT_MAX_EXPIRATION_DAYS`  | `60`             | Agent ceiling on link lifetime       |
 
 Limits (transfer size, file count, expiry range, retention) live in
 `backend/src/config.ts`.
+
+### Agent mode
+
+A single trusted machine caller — `agent.hexart.io` — may exceed the public
+ceilings. Anonymous transfers are untouched: still 5GB, still at most 7 days,
+still no signup. The feature is off unless `AGENT_API_KEY` is set (24+ chars).
+
+The agent presents `x-agent-key` on `POST /api/transfer/init` and gets the
+raised size limit plus a longer `expirationDays`. It also unlocks one extra
+route:
+
+```
+PATCH /api/transfer/:id/expiry
+  headers: x-agent-key, x-owner-token
+  body:    { "expirationDays": 30 }
+```
+
+Both credentials are required: the key proves it is the agent, the owner token
+proves the transfer is one the agent created itself. The key comparison is
+constant time.
+
+Why it exists: a real job runs longer than a week of back-and-forth — the client
+accepts a quote on Monday, pays on Thursday and collects the result the week
+after. The same route shortens a link once the files have been collected, so a
+copy of someone's material does not sit on the box longer than it must.
+
+`HARD_MAX_AGE_MS` follows the longest link the service can issue, so the sweeper
+never deletes bytes a valid link still points at.
 
 ## Deployment
 

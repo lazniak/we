@@ -32,11 +32,42 @@ export const MIN_EXPIRATION_DAYS = 1;
 export const MAX_EXPIRATION_DAYS = 7;
 export const DEFAULT_EXPIRATION_DAYS = 3;
 
+/* ------------------------------------------------------------ agent mode */
+
+/**
+ * A trusted machine caller - agent.hexart.io - may exceed the public ceilings.
+ *
+ * Anonymous transfers stay exactly as they were: 5GB, at most 7 days, no key.
+ * The agent negotiates real jobs with clients, so it needs to hand out links
+ * that outlive a week of back-and-forth and to move source material that a
+ * consumer upload box was never sized for.
+ *
+ * Without AGENT_API_KEY set, nothing below is reachable and the service
+ * behaves exactly as before - the feature is off unless it is configured.
+ */
+export const AGENT_API_KEY = process.env.AGENT_API_KEY || '';
+
+export const agentModeEnabled = () => AGENT_API_KEY.length >= 24;
+
+/** How long an agent link may live. Still finite - this is exchange, not storage. */
+export const AGENT_MAX_EXPIRATION_DAYS = Number(process.env.AGENT_MAX_EXPIRATION_DAYS || 60);
+
+/** Ceiling on one agent transfer. */
+export const AGENT_MAX_TRANSFER_BYTES = Number(
+  process.env.AGENT_MAX_TRANSFER_BYTES || 50 * 1024 * 1024 * 1024,
+);
+
 /**
  * Backstop retention: nothing survives past this, even if expires_at was
  * somehow written wrong or the row vanished. Keeps "self destruct" honest.
+ *
+ * The cap has to clear the longest link the service can issue, otherwise the
+ * sweeper would delete bytes that a still-valid link points at. With agent
+ * mode off this is unchanged: MAX_EXPIRATION_DAYS + 1.
  */
-export const HARD_MAX_AGE_MS = (MAX_EXPIRATION_DAYS + 1) * 24 * 60 * 60 * 1000;
+export const HARD_MAX_AGE_MS =
+  ((agentModeEnabled() ? Math.max(MAX_EXPIRATION_DAYS, AGENT_MAX_EXPIRATION_DAYS) : MAX_EXPIRATION_DAYS) + 1) *
+  24 * 60 * 60 * 1000;
 
 /**
  * How long an unfinished upload may sit on disk before it is swept.

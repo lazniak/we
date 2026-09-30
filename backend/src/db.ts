@@ -314,6 +314,19 @@ export function incrementDownloadCount(id: string): void {
   db.run('UPDATE transfers SET download_count = download_count + 1 WHERE id = ?', [id]);
 }
 
+/**
+ * Moves a transfer's expiry. Used by the trusted agent to extend a link that a
+ * client has not fetched yet, or to cut one short once the files are collected.
+ *
+ * Written in the same ISO shape as createTransfer, so every datetime()
+ * comparison downstream keeps working.
+ */
+export function setTransferExpiry(id: string, days: number): Transfer | undefined {
+  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+  db.run('UPDATE transfers SET expires_at = ? WHERE id = ?', [expiresAt, id]);
+  return getTransfer(id);
+}
+
 export function deleteTransfer(id: string): void {
   db.run('DELETE FROM transfer_chunks WHERE transfer_id = ?', [id]);
   db.run('DELETE FROM transfer_files WHERE transfer_id = ?', [id]);

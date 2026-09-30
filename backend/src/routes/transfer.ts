@@ -2,6 +2,9 @@ import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import { existsSync, mkdirSync, rmSync } from 'fs';
 import {
+  AGENT_API_KEY,
+  AGENT_MAX_EXPIRATION_DAYS,
+  AGENT_MAX_TRANSFER_BYTES,
   CHUNK_SIZE,
   DEFAULT_EXPIRATION_DAYS,
   MAX_CHUNK_BYTES,
@@ -10,6 +13,7 @@ import {
   MAX_FILE_BYTES,
   MAX_TRANSFER_BYTES,
   MIN_EXPIRATION_DAYS,
+  agentModeEnabled,
 } from '../config';
 import {
   addTransferFile,
@@ -29,6 +33,7 @@ import {
   setFile360,
   setFileCrc,
   setScanVerdict,
+  setTransferExpiry,
   type Transfer,
 } from '../db';
 import { broadcastProgress } from '../websocket';
@@ -165,12 +170,86 @@ interface IncomingFile {
   type?: string;
 }
 
+/**
+ * Is this request the trusted agent?
+ *
+ * Compared in constant time: a key check that returns early leaks its own
+ * answer through timing, and this one guards higher limits.
+ */
+function isAgent(c: { req: { header: (name: string) => string | undefined } }): boolean {
+  if (!agentModeEnabled()) return false;
+  const provided = c.req.header('x-agent-key') || '';
+  if (provided.length !== AGENT_API_KEY.length) return false;
+
+  let diff = 0;
+  for (let i = 0; i < provided.length; i++) {
+    diff |= provided.charCodeAt(i) ^ AGENT_API_KEY.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+/** Ceilings for this caller. Anonymous callers see exactly the old numbers. */
+function limitsFor(agent: boolean) {
+  return {
+    maxBytes: agent ? AGENT_MAX_TRANSFER_BYTES : MAX_TRANSFER_BYTES,
+    maxDays: agent ? AGENT_MAX_EXPIRATION_DAYS : MAX_EXPIRATION_DAYS,
+  };
+}
+
+const humanBytes = (b: number) => `${Math.round(b / 1024 / 1024 / 1024)}GB`;
+
+/**
+ * PATCH /:id/expiry - the agent moves a link's expiry.
+ *
+ * Two things have to line up: the agent key and the transfer's owner token.
+ * The key alone would let anyone holding it touch other people's transfers;
+ * the token alone is what the browser uploader already has. Both together mean
+ * "the agent, acting on a transfer it created itself".
+ *
+ * Extending matters because a real job runs longer than a week of chat: the
+ * client accepts a quote on Monday, pays on Thursday and collects the result
+ * the week after. Shortening matters too - once files are collected there is
+ * no reason to leave a copy of someone's material sitting on the box.
+ */
+transferRoutes.patch('/:id/expiry', rateLimit('mutate'), async (c) => {
+  if (!isAgent(c)) return c.json({ error: 'Not allowed' }, 403);
+
+  const id = c.req.param('id');
+  if (!isValidTransferId(id)) return c.json({ error: 'Invalid transfer id' }, 400);
+
+  const transfer = getTransfer(id);
+  if (!transfer) return c.json({ error: 'Transfer not found' }, 404);
+
+  const provided = c.req.header('x-owner-token') || '';
+  if (!transfer.owner_token || provided !== transfer.owner_token) {
+    return c.json({ error: 'Not allowed' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => null);
+  const requested = Number(body?.expirationDays);
+  if (!Number.isFinite(requested)) {
+    return c.json({ error: 'expirationDays must be a number' }, 400);
+  }
+
+  const days = Math.max(
+    MIN_EXPIRATION_DAYS,
+    Math.min(AGENT_MAX_EXPIRATION_DAYS, Math.floor(requested)),
+  );
+  const updated = setTransferExpiry(id, days);
+
+  console.log(`⏳ Transfer ${id}: expiry set to ${days}d [agent]`);
+  return c.json({ transferId: id, expiresAt: updated?.expires_at, expirationDays: days });
+});
+
 transferRoutes.post('/init', rateLimit('init'), async (c) => {
   try {
     const body = await c.req.json().catch(() => null);
     if (!body || typeof body !== 'object') {
       return c.json({ error: 'Invalid request body' }, 400);
     }
+
+    const agent = isAgent(c);
+    const limits = limitsFor(agent);
 
     const incoming: IncomingFile[] = Array.isArray(body.files) ? body.files : [];
     const incomingDirs: string[] = Array.isArray(body.dirs) ? body.dirs : [];
@@ -191,13 +270,13 @@ transferRoutes.post('/init', rateLimit('init'), async (c) => {
     });
 
     if (sizes.some((s) => s < 0)) return c.json({ error: 'Invalid file size' }, 400);
-    if (sizes.some((s) => s > MAX_FILE_BYTES)) {
+    if (sizes.some((s) => s > limits.maxBytes)) {
       return c.json({ error: 'A single file exceeds the size limit' }, 400);
     }
 
     const totalSize = sizes.reduce((acc, s) => acc + s, 0);
-    if (totalSize > MAX_TRANSFER_BYTES) {
-      return c.json({ error: 'Transfer exceeds the 5GB limit' }, 400);
+    if (totalSize > limits.maxBytes) {
+      return c.json({ error: `Transfer exceeds the ${humanBytes(limits.maxBytes)} limit` }, 400);
     }
 
     const filePaths = dedupePaths(
@@ -206,7 +285,7 @@ transferRoutes.post('/init', rateLimit('init'), async (c) => {
 
     const requestedDays = Number(body.expirationDays);
     const days = Number.isFinite(requestedDays)
-      ? Math.max(MIN_EXPIRATION_DAYS, Math.min(MAX_EXPIRATION_DAYS, Math.floor(requestedDays)))
+      ? Math.max(MIN_EXPIRATION_DAYS, Math.min(limits.maxDays, Math.floor(requestedDays)))
       : DEFAULT_EXPIRATION_DAYS;
 
     const transferId = nanoid(12);
@@ -273,7 +352,7 @@ transferRoutes.post('/init', rateLimit('init'), async (c) => {
 
     console.log(
       `📤 Transfer ${transferId}: ${incoming.length} file(s), ` +
-        `${(totalSize / 1024 / 1024).toFixed(1)} MB, ${days}d`,
+        `${(totalSize / 1024 / 1024).toFixed(1)} MB, ${days}d${agent ? ' [agent]' : ''}`,
     );
 
     return c.json({
