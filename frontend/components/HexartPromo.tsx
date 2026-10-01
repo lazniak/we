@@ -120,7 +120,7 @@ export default function HexartPromo() {
         <button
           onClick={swap}
           type="button"
-          className="absolute right-3 top-5 z-30 grid h-11 w-11 place-items-center rounded-[2px] border border-white/15 bg-[#0a0a0c]/60 text-white/80 backdrop-blur-sm transition-colors duration-200 hover:border-accent/40 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
+          className="absolute right-2 top-5 z-30 grid h-11 w-11 place-items-center rounded-[2px] border border-white/15 bg-[#0a0a0c]/60 text-white/80 backdrop-blur-sm transition-colors duration-200 hover:border-accent/40 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent sm:right-4"
           aria-label="Pokaż inną informację o HEXART"
           title="Pokaż coś innego"
         >
