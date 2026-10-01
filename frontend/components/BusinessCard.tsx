@@ -26,10 +26,10 @@ export default function BusinessCard() {
 
   return (
     <aside className="w-full mx-auto mt-3 animate-fade-in">
-      <div className="card-hover glass rounded-2xl p-4 sm:p-5 hover:border-accent/25 hover:shadow-[0_16px_44px_-16px_rgba(212,175,55,0.25)]">
+      <div className="chamfer chamfer-lg border border-white/10 bg-[#141418]/75 p-4 backdrop-blur-xl sm:p-5">
         <div className="flex items-center gap-4">
           <div className="relative shrink-0">
-            <div className="w-16 h-16 sm:w-[76px] sm:h-[76px] rounded-2xl overflow-hidden ring-1 ring-accent/30 bg-gradient-to-br from-accent/15 to-transparent flex items-center justify-center shadow-[0_0_30px_-8px_rgba(212,175,55,0.35)]">
+            <div className="hex-mask flex h-16 w-14 items-center justify-center overflow-hidden bg-[#24242a] sm:h-[76px] sm:w-[66px]">
               {photoOk ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
@@ -40,18 +40,16 @@ export default function BusinessCard() {
                   draggable={false}
                 />
               ) : (
-                <span className="font-display text-2xl font-bold gradient-text">PL</span>
+                <span className="font-display text-2xl font-semibold text-accent">PL</span>
               )}
             </div>
-            {/* Quiet "reach me" cue */}
-            <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-accent ring-4 ring-[#0a0a0c] animate-pulse-glow" />
           </div>
 
           <div className="flex-1 min-w-0">
             <p className="font-display text-base sm:text-lg font-semibold text-white/90 leading-tight">
               {CONTACT.name}
             </p>
-            <p className="text-xs text-white/40 mb-2 truncate">{CONTACT.role}</p>
+            <p className="mb-2 truncate text-xs text-[#b0b8c4]">{CONTACT.role}</p>
             <a
               href={`tel:${CONTACT.phoneTel}`}
               className="inline-flex items-center gap-1.5 text-sm text-accent hover:text-accent-light transition-colors font-medium"
@@ -62,10 +60,10 @@ export default function BusinessCard() {
           </div>
         </div>
 
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 grid grid-cols-2 gap-2">
           <a
             href={`tel:${CONTACT.phoneTel}`}
-            className="btn-primary shrink-0 whitespace-nowrap px-5 py-2.5 text-sm flex items-center justify-center gap-2"
+            className="chamfer chamfer-sm flex min-h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap bg-accent px-2 py-2.5 text-[13px] font-medium text-[#0a0a0c] transition-colors duration-200 hover:bg-accent-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white sm:text-sm"
             aria-label={`Zadzwoń pod ${CONTACT.phoneDisplay}`}
           >
             <Phone className="w-4 h-4" />
@@ -75,10 +73,11 @@ export default function BusinessCard() {
             href={CONTACT.bookingUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="btn-outline flex-1 whitespace-nowrap px-3 py-2.5 text-sm flex items-center justify-center gap-2"
+            className="chamfer chamfer-sm flex min-h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap border border-accent/40 px-2 py-2.5 text-[13px] text-white/90 transition-colors duration-200 hover:border-accent hover:bg-accent/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-accent sm:text-sm"
+            aria-label="Umów rozmowę w HEXART"
           >
             <CalendarClock className="w-4 h-4" />
-            Umów rozmowę
+            Umów się
           </a>
         </div>
       </div>

@@ -2,15 +2,12 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { detectInstallPlatform, type InstallPlatform } from '@/lib/pwa';
-
-interface InstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
+import { promptInstallation, type InstallNavigator, type InstallPromptEvent } from '@/lib/pwa-install';
 
 interface PwaState {
   installed: boolean;
   ready: boolean;
+  canInstall: boolean;
   platform: InstallPlatform;
   userAgent: string;
   install(): Promise<boolean>;
@@ -28,6 +25,7 @@ export default function PwaProvider({ children }: { children: React.ReactNode })
   const promptRef = useRef<InstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
   const [ready, setReady] = useState(false);
+  const [canInstall, setCanInstall] = useState(false);
   const [offline, setOffline] = useState(false);
   const [platform, setPlatform] = useState<InstallPlatform>('desktop');
   const [userAgent, setUserAgent] = useState('');
@@ -39,13 +37,16 @@ export default function PwaProvider({ children }: { children: React.ReactNode })
     const capturePrompt = (event: Event) => {
       event.preventDefault();
       promptRef.current = event as InstallPromptEvent;
+      setCanInstall(true);
     };
     const onInstalled = () => {
       promptRef.current = null;
       setInstalled(true);
+      setCanInstall(false);
     };
 
     setUserAgent(navigator.userAgent);
+    setCanInstall(typeof (navigator as Navigator & InstallNavigator).install === 'function');
     setPlatform(detectInstallPlatform(navigator.userAgent, navigator.maxTouchPoints));
     updateInstalled();
     updateConnection();
@@ -82,19 +83,15 @@ export default function PwaProvider({ children }: { children: React.ReactNode })
 
   const install = useCallback(async () => {
     const event = promptRef.current;
-    if (!event) return false;
     promptRef.current = null; // A browser prompt can only be used once.
-    try {
-      await event.prompt();
-      await event.userChoice;
-      return true; // Dismissal is respected; do not show a second prompt.
-    } catch {
-      return false;
-    }
+    const browser = navigator as Navigator & InstallNavigator;
+    const result = await promptInstallation(event, browser);
+    setCanInstall(promptRef.current !== null || (result && typeof browser.install === 'function'));
+    return result;
   }, []);
 
   return (
-    <PwaContext.Provider value={{ installed, ready, platform, userAgent, install }}>
+    <PwaContext.Provider value={{ installed, ready, canInstall, platform, userAgent, install }}>
       {children}
       {offline && (
         <p role="status" className="fixed inset-x-4 top-3 z-50 mx-auto max-w-md border border-white/15 bg-[#141418] px-4 py-3 text-center text-xs text-[#b0b8c4] shadow-xl">

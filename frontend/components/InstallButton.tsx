@@ -6,14 +6,14 @@ import { installInstructions } from '@/lib/pwa';
 import { usePwa } from './PwaProvider';
 
 export default function InstallButton() {
-  const { installed, ready, platform, userAgent, install } = usePwa();
+  const { installed, ready, canInstall, platform, userAgent, install } = usePwa();
   const [showHelp, setShowHelp] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const onInstall = async () => {
     setBusy(true);
     try {
-      if (!(await install())) setShowHelp(true);
+      setShowHelp(!(await install()));
     } finally {
       setBusy(false);
     }
@@ -32,13 +32,16 @@ export default function InstallButton() {
         <Download className="h-[18px] w-[18px]" aria-hidden="true" />
         Install
       </button>
-      {showHelp && <InstallHelp instructions={installInstructions(platform, userAgent)} onClose={() => setShowHelp(false)} />}
+      {showHelp && <InstallHelp instructions={installInstructions(platform, userAgent)} canInstall={canInstall} busy={busy} onInstall={onInstall} onClose={() => setShowHelp(false)} />}
     </>
   );
 }
 
-function InstallHelp({ instructions, onClose }: {
+function InstallHelp({ instructions, canInstall, busy, onInstall, onClose }: {
   instructions: ReturnType<typeof installInstructions>;
+  canInstall: boolean;
+  busy: boolean;
+  onInstall(): Promise<void>;
   onClose(): void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -73,11 +76,20 @@ function InstallHelp({ instructions, onClose }: {
         </button>
       </div>
       <p id="install-description" className="mt-4 text-sm leading-relaxed text-[#b0b8c4]">Wysyłaj i odbieraj pliki w osobnym oknie aplikacji.</p>
-      <ol className="mt-6 list-decimal space-y-4 pl-5 text-sm leading-relaxed text-white/85">
-        {instructions.steps.map((step) => <li key={step} className="pl-1">{step}</li>)}
-      </ol>
-      <p className="mt-6 border-t border-white/10 pt-4 text-xs leading-relaxed text-[#b0b8c4]">{instructions.note}</p>
-      {instructions.helpUrl && (
+      {canInstall ? (
+        <button type="button" onClick={onInstall} disabled={busy} className="chamfer chamfer-sm mt-6 inline-flex min-h-11 items-center gap-2 bg-accent px-4 text-sm font-medium text-[#0a0a0c] hover:bg-accent-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white disabled:opacity-50">
+          <Download className="h-4 w-4" aria-hidden="true" />
+          {busy ? 'Otwieranie instalatora…' : 'Zainstaluj aplikację'}
+        </button>
+      ) : (
+        <>
+          <ol className="mt-6 list-decimal space-y-4 pl-5 text-sm leading-relaxed text-white/85">
+            {instructions.steps.map((step) => <li key={step} className="pl-1">{step}</li>)}
+          </ol>
+          <p className="mt-6 border-t border-white/10 pt-4 text-xs leading-relaxed text-[#b0b8c4]">{instructions.note}</p>
+        </>
+      )}
+      {!canInstall && instructions.helpUrl && (
         <a href={instructions.helpUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-1 text-xs text-accent hover:text-accent-light">
           Instrukcja Apple <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
         </a>

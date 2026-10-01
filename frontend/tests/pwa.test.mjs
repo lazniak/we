@@ -2,6 +2,33 @@ import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { detectInstallPlatform, installInstructions } from '../lib/pwa.ts';
+import { promptInstallation } from '../lib/pwa-install.ts';
+
+describe('direct browser installation', () => {
+  test('opens the deferred browser prompt from the click and respects dismissal', async () => {
+    let prompts = 0;
+    let alternativePrompts = 0;
+    for (const outcome of ['accepted', 'dismissed']) {
+      const result = promptInstallation({ prompt: async () => { prompts++; }, userChoice: Promise.resolve({ outcome }) }, { install: async () => { alternativePrompts++; } });
+      expect(prompts).toBe(outcome === 'accepted' ? 1 : 2); // Invoked before the first await.
+      expect(await result).toBe(true);
+    }
+    expect(alternativePrompts).toBe(0);
+  });
+  test('uses the current-page Web Install API when there is no deferred prompt', async () => {
+    let prompts = 0;
+    const browser = { install: async function () { expect(this).toBe(browser); prompts++; } };
+    const result = promptInstallation(null, browser);
+    expect(prompts).toBe(1);
+    expect(await result).toBe(true);
+    expect(await promptInstallation(null, { install: async () => { throw new DOMException('Cancelled', 'AbortError'); } })).toBe(true);
+  });
+  test('shows guidance only for missing or unavailable installation APIs', async () => {
+    expect(await promptInstallation(null, {})).toBe(false);
+    expect(await promptInstallation(null, { install: async () => { throw new DOMException('Unavailable', 'NotAllowedError'); } })).toBe(false);
+    expect(await promptInstallation({ prompt: async () => { throw new Error('Unavailable'); }, userChoice: Promise.resolve({ outcome: 'accepted' }) }, {})).toBe(false);
+  });
+});
 
 describe('installation instructions', () => {
   test('recognizes iPhone, desktop-mode iPad, Android and desktop Mac', () => {

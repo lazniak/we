@@ -12,11 +12,9 @@ const AUTO_ROTATE_MS = 11000;
 type Layer = { id: number; promo: Promo; visible: boolean };
 
 /**
- * Studio promo shown next to the transfer tool - a full-bleed square poster.
- * At rest it shows only the question as a large headline; on hover the question
- * dissolves upward and the answer (plus a "click to…" cue) rises in its place.
- * The whole poster is one link that opens the matching hexart.pl page in a new
- * tab.
+ * A 16:9 studio banner for phones and portrait screens. Its headline and link
+ * stay visible on touch devices; wider cards also show the supporting copy.
+ * The whole banner opens the matching hexart.pl page in a new tab.
  *
  * Between promos the poster cross-fades: the outgoing and incoming faces are
  * stacked and their opacities swap, so the change is a smooth dissolve rather
@@ -102,7 +100,7 @@ export default function HexartPromo() {
   return (
     <aside className="w-full mx-auto mt-8 animate-fade-in">
       <div
-        className="card-hover relative aspect-square w-full overflow-hidden rounded-2xl glass-accent transition-shadow duration-300 hover:shadow-[0_22px_60px_-14px_rgba(212,175,55,0.32)]"
+        className="chamfer chamfer-lg relative aspect-video w-full overflow-hidden border border-white/15 bg-[#0a0a0c]"
         onMouseEnter={() => (pausedRef.current = true)}
         onMouseLeave={() => (pausedRef.current = false)}
         onFocusCapture={() => (pausedRef.current = true)}
@@ -121,11 +119,12 @@ export default function HexartPromo() {
             instead of opening the promo, and the markup stays valid. */}
         <button
           onClick={swap}
-          className="absolute right-3 top-3 z-30 rounded-lg bg-black/45 p-2 text-white/60 backdrop-blur-sm transition-colors hover:bg-black/65 hover:text-accent"
+          type="button"
+          className="chamfer chamfer-sm absolute right-2 top-2 z-30 grid h-11 w-11 place-items-center border border-white/15 bg-[#0a0a0c]/60 text-white/80 backdrop-blur-sm transition-colors duration-200 hover:border-accent/40 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
           aria-label="Pokaż inną informację o HEXART"
           title="Pokaż coś innego"
         >
-          <RefreshCw className="h-3.5 w-3.5" />
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
     </aside>
@@ -148,53 +147,41 @@ function PosterFace({
       rel="noopener noreferrer"
       tabIndex={active ? 0 : -1}
       aria-hidden={!active}
-      className={`group/poster absolute inset-0 block transition-opacity duration-[600ms] ease-in-out ${
+      className={`group/poster absolute inset-0 block transition-opacity duration-[600ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-accent ${
         visible ? 'opacity-100' : 'opacity-0'
       } ${active ? '' : 'pointer-events-none'}`}
     >
-      {/* Full-bleed square artwork, slow Ken Burns push */}
+      {/* Full 16:9 artwork, slow Ken Burns push. */}
       <div className="absolute inset-0 animate-kenburns">
         <PromoArt art={promo.art} />
       </div>
 
       {/* Readability scrims: soft at the top for the kicker, deep at the bottom. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/60 to-transparent" />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/92 via-black/50 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-[#0a0a0c]/70 to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0a0a0c]/95 via-[#0a0a0c]/25 to-transparent" />
 
       {/* Category kicker */}
-      <div className="absolute left-5 top-5 flex items-center gap-2">
-        <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse-glow" />
-        <span className="text-[10px] uppercase tracking-[0.22em] text-accent/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.85)]">
+      <div className="absolute left-3 right-14 top-3 flex items-center gap-2 sm:left-5 sm:top-5">
+        <span className="h-px w-4 shrink-0 bg-accent/70" />
+        <span className="font-label text-[10px] font-medium uppercase tracking-[0.12em] text-accent-light sm:text-xs">
           HEXART Studio · {promo.kicker}
         </span>
       </div>
       {PROMO_ART[promo.art].ai && (
-        <AiBadge className="absolute left-4 top-11 !text-[10px]" />
+        <AiBadge className="absolute left-3 top-8 !text-[10px] sm:left-5 sm:top-11" />
       )}
 
-      {/* Copy - the question rests here and dissolves into the answer on hover.
-          Both share one grid cell, so the block never resizes as they swap. */}
-      <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
-        <div className="grid">
-          {/* Question (rest state) */}
-          <div className="col-start-1 row-start-1 self-end transition-all duration-[450ms] ease-out group-hover/poster:-translate-y-2 group-hover/poster:opacity-0">
-            <h3 className="font-display text-3xl font-bold leading-[1.1] text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.75)] sm:text-[2.4rem]">
-              {promo.title}
-            </h3>
-          </div>
-
-          {/* Answer + click cue (hover state) */}
-          <div className="col-start-1 row-start-1 translate-y-2 self-end opacity-0 transition-all duration-[450ms] ease-out group-hover/poster:translate-y-0 group-hover/poster:opacity-100">
-            <div className="mb-4 h-px w-10 bg-accent/70" />
-            <p className="mb-5 max-w-[44ch] text-base leading-relaxed text-white/90 drop-shadow-[0_1px_10px_rgba(0,0,0,0.75)]">
-              {promo.body}
-            </p>
-            <span className="inline-flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-accent-light drop-shadow-[0_1px_8px_rgba(0,0,0,0.8)]">
-              Kliknij, by zobaczyć
-              <ArrowUpRight className="h-4 w-4" />
-            </span>
-          </div>
-        </div>
+      <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6">
+        <h3 className="max-w-[30ch] font-display text-[clamp(1.125rem,5vw,1.5rem)] font-semibold leading-[1.1] text-white sm:text-[1.75rem]">
+          {promo.title}
+        </h3>
+        <p className="sr-only sm:not-sr-only sm:mt-2 sm:line-clamp-2 sm:max-w-[48ch] sm:text-sm sm:leading-relaxed sm:text-white/85">
+          {promo.body}
+        </p>
+        <span className="mt-2 inline-flex items-center gap-1.5 font-label text-xs font-medium uppercase tracking-[0.1em] text-accent-light sm:mt-3">
+          {promo.cta}
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </span>
       </div>
     </a>
   );
