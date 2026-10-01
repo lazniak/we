@@ -53,9 +53,16 @@ export const viewport: Viewport = {
   themeColor: '#0a0a0c',
 };
 
+// Chrome may offer installation before the app hydrates, and the offer comes
+// only once per page load. Kept from the first byte, PwaProvider picks it up.
+const KEEP_INSTALL_PROMPT = `(function(w){w.addEventListener('beforeinstallprompt',function(e){e.preventDefault();w.__hexartInstallPrompt=e;w.dispatchEvent(new Event('hexart-installable'))});w.addEventListener('appinstalled',function(){w.__hexartInstallPrompt=null})})(window);`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pl" className={outfit.variable}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: KEEP_INSTALL_PROMPT }} />
+      </head>
       <body className="min-h-screen antialiased">
         <BackgroundVideo />
         <PwaProvider><div className="relative z-10 min-h-screen flex flex-col">{children}</div></PwaProvider>

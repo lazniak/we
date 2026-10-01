@@ -224,7 +224,8 @@ function useFilmUrl(art: PromoArtKey, size: PromoFilmSize) {
  * The promo picture: a muted, inline, looping film where one exists, the still
  * until it has downloaded and otherwise. The film's poster is its first frame,
  * so the change is invisible. If the browser refuses autoplay (iOS Low Power
- * Mode) or cannot decode the film, the still stays.
+ * Mode) the poster holds until it may play; if it cannot decode the film, the
+ * still stays.
  */
 export function PromoMedia({
   art,
@@ -247,9 +248,26 @@ export function PromoMedia({
     if (!playing || !video) return;
     // Autoplay rules check the property, which React does not always set.
     video.muted = true;
-    video.play().catch((error: DOMException) => {
-      if (error.name !== 'AbortError') setFailed(true);
-    });
+    video.defaultMuted = true;
+    // A hidden tab holds the film back and iOS in Low Power Mode refuses it
+    // until a touch. The poster is the first frame, so a film that has not
+    // started looks like the still; it starts as soon as it may: now, when
+    // the page shows again, or on the next touch.
+    const start = () => {
+      if (!video.paused || document.hidden) return;
+      video.play().catch((error: DOMException) => {
+        if (error.name === 'NotSupportedError') setFailed(true);
+      });
+    };
+    start();
+    document.addEventListener('visibilitychange', start);
+    window.addEventListener('pageshow', start);
+    window.addEventListener('pointerdown', start, { passive: true });
+    return () => {
+      document.removeEventListener('visibilitychange', start);
+      window.removeEventListener('pageshow', start);
+      window.removeEventListener('pointerdown', start);
+    };
   }, [playing, url]);
 
   const style: React.CSSProperties = {
@@ -296,14 +314,32 @@ export function PromoMedia({
 
 /**
  * The brand's AI marker (hx-ai, overlay variant): a gold "AI" tab and the
- * exact wording, on a solid dark plate in a corner of the frame.
+ * exact wording, on a dark plate in a corner of the frame. The compact
+ * variant keeps the full wording in the condensed label face, so it stays
+ * legible on the small banner without competing with its headline.
  */
-export function AiBadge({ art, className = '' }: { art: PromoArtKey; className?: string }) {
+export function AiBadge({
+  art,
+  compact = false,
+  className = '',
+}: {
+  art: PromoArtKey;
+  compact?: boolean;
+  className?: string;
+}) {
   return (
     <span
-      className={`chamfer chamfer-sm chamfer-line inline-flex items-center gap-2 border border-white/[0.16] bg-[#0a0a0c]/[0.62] py-1 pl-1 pr-3 text-[11px] font-medium leading-tight text-white backdrop-blur-[12px] ${className}`}
+      className={`chamfer chamfer-sm chamfer-line inline-flex items-center border ${
+        compact
+          ? 'gap-[5px] border-white/[0.1] bg-[#0a0a0c]/[0.45] py-[2px] pl-[2px] pr-[6px] font-label text-[9px] font-medium leading-none text-white/80 backdrop-blur-[8px]'
+          : 'gap-2 border-white/[0.16] bg-[#0a0a0c]/[0.62] py-1 pl-1 pr-3 text-[11px] font-medium leading-tight text-white backdrop-blur-[12px]'
+      } ${className}`}
     >
-      <span className="grid h-[1.6em] min-w-[1.9em] place-content-center bg-accent px-1 font-label font-bold tracking-[0.06em] text-[#0a0a0c]">
+      <span
+        className={`grid place-content-center bg-accent font-label font-bold text-[#0a0a0c] ${
+          compact ? 'h-[1.45em] min-w-[1.75em] px-[3px] tracking-[0.04em]' :'h-[1.6em] min-w-[1.9em] px-1 tracking-[0.06em]'
+        }`}
+      >
         AI
       </span>
       {aiLabel(art)}

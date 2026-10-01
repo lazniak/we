@@ -8,10 +8,16 @@ interface PwaState {
   installed: boolean;
   ready: boolean;
   canInstall: boolean;
+  /** The browser installs from its own prompt, which may still be on its way. */
+  promptExpected: boolean;
   platform: InstallPlatform;
   userAgent: string;
   install(): Promise<boolean>;
 }
+
+/** The offer kept by the inline script in app/layout.tsx. */
+type InstallWindow = Window & { __hexartInstallPrompt?: InstallPromptEvent | null };
+type RelatedAppsNavigator = Navigator & { getInstalledRelatedApps?(): Promise<unknown[]> };
 
 const PwaContext = createContext<PwaState | null>(null);
 
@@ -26,6 +32,7 @@ export default function PwaProvider({ children }: { children: React.ReactNode })
   const [installed, setInstalled] = useState(false);
   const [ready, setReady] = useState(false);
   const [canInstall, setCanInstall] = useState(false);
+  const [promptExpected, setPromptExpected] = useState(false);
   const [offline, setOffline] = useState(false);
   const [platform, setPlatform] = useState<InstallPlatform>('desktop');
   const [userAgent, setUserAgent] = useState('');
@@ -39,20 +46,36 @@ export default function PwaProvider({ children }: { children: React.ReactNode })
       promptRef.current = event as InstallPromptEvent;
       setCanInstall(true);
     };
+    // Chrome often makes its offer before hydration; the head script kept it.
+    const adoptKeptPrompt = () => {
+      const kept = (window as InstallWindow).__hexartInstallPrompt;
+      if (!kept) return;
+      promptRef.current = kept;
+      setCanInstall(true);
+    };
     const onInstalled = () => {
       promptRef.current = null;
       setInstalled(true);
       setCanInstall(false);
     };
 
+    const platformName = detectInstallPlatform(navigator.userAgent, navigator.maxTouchPoints);
     setUserAgent(navigator.userAgent);
     setCanInstall(typeof (navigator as Navigator & InstallNavigator).install === 'function');
-    setPlatform(detectInstallPlatform(navigator.userAgent, navigator.maxTouchPoints));
+    setPlatform(platformName);
+    setPromptExpected(platformName !== 'ios' && 'onbeforeinstallprompt' in window);
+    adoptKeptPrompt();
     updateInstalled();
     updateConnection();
     setReady(true);
+    // Already installed on this device: Chrome sends no offer then, so the
+    // button would only lead to instructions. Hide it instead.
+    void (navigator as RelatedAppsNavigator).getInstalledRelatedApps?.()
+      .then((apps) => { if (apps.length) setInstalled(true); })
+      .catch(() => {});
     display.addEventListener('change', updateInstalled);
     window.addEventListener('beforeinstallprompt', capturePrompt);
+    window.addEventListener('hexart-installable', adoptKeptPrompt);
     window.addEventListener('appinstalled', onInstalled);
     window.addEventListener('online', updateConnection);
     window.addEventListener('offline', updateConnection);
@@ -79,6 +102,7 @@ export default function PwaProvider({ children }: { children: React.ReactNode })
       disposed = true;
       display.removeEventListener('change', updateInstalled);
       window.removeEventListener('beforeinstallprompt', capturePrompt);
+      window.removeEventListener('hexart-installable', adoptKeptPrompt);
       window.removeEventListener('appinstalled', onInstalled);
       window.removeEventListener('online', updateConnection);
       window.removeEventListener('offline', updateConnection);
@@ -89,6 +113,7 @@ export default function PwaProvider({ children }: { children: React.ReactNode })
   const install = useCallback(async () => {
     const event = promptRef.current;
     promptRef.current = null; // A browser prompt can only be used once.
+    (window as InstallWindow).__hexartInstallPrompt = null;
     const browser = navigator as Navigator & InstallNavigator;
     const result = await promptInstallation(event, browser);
     setCanInstall(promptRef.current !== null || (result && typeof browser.install === 'function'));
@@ -96,7 +121,7 @@ export default function PwaProvider({ children }: { children: React.ReactNode })
   }, []);
 
   return (
-    <PwaContext.Provider value={{ installed, ready, canInstall, platform, userAgent, install }}>
+    <PwaContext.Provider value={{ installed, ready, canInstall, promptExpected, platform, userAgent, install }}>
       {children}
       {offline && (
         <p role="status" className="fixed inset-x-4 top-3 z-50 mx-auto max-w-md border border-white/15 bg-[#141418] px-4 py-3 text-center text-xs text-[#b0b8c4] shadow-xl">

@@ -192,7 +192,7 @@ function PosterFace({
         </span>
       </div>
       {PROMO_ART[promo.art].ai && (
-        <AiBadge art={promo.art} className="absolute left-3 top-8 !text-[10px] sm:left-5 sm:top-11" />
+        <AiBadge art={promo.art} compact className="absolute left-3 top-8 sm:left-5 sm:top-11" />
       )}
 
       <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6">

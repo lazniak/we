@@ -5,8 +5,11 @@ import { ArrowUpRight, Download, X } from 'lucide-react';
 import { installInstructions } from '@/lib/pwa';
 import { usePwa } from './PwaProvider';
 
+/** How long to wait for the browser's own offer before falling back to steps. */
+const OFFER_WAIT_MS = 8000;
+
 export default function InstallButton() {
-  const { installed, ready, canInstall, platform, userAgent, install } = usePwa();
+  const { installed, ready, canInstall, promptExpected, platform, userAgent, install } = usePwa();
   const [showHelp, setShowHelp] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -32,25 +35,36 @@ export default function InstallButton() {
         <Download className="h-[18px] w-[18px]" aria-hidden="true" />
         Install
       </button>
-      {showHelp && <InstallHelp instructions={installInstructions(platform, userAgent)} canInstall={canInstall} busy={busy} onInstall={onInstall} onClose={() => setShowHelp(false)} />}
+      {showHelp && <InstallHelp instructions={installInstructions(platform, userAgent)} canInstall={canInstall} promptExpected={promptExpected} busy={busy} onInstall={onInstall} onClose={() => setShowHelp(false)} />}
     </>
   );
 }
 
-function InstallHelp({ instructions, canInstall, busy, onInstall, onClose }: {
+function InstallHelp({ instructions, canInstall, promptExpected, busy, onInstall, onClose }: {
   instructions: ReturnType<typeof installInstructions>;
   canInstall: boolean;
+  promptExpected: boolean;
   busy: boolean;
   onInstall(): Promise<void>;
   onClose(): void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  // Chrome makes its offer only after it has checked the app, sometimes a few
+  // seconds into the visit. Wait for it rather than show manual steps at once;
+  // the install button appears the moment it arrives.
+  const [waiting, setWaiting] = useState(promptExpected);
 
   useEffect(() => {
     const element = dialog.current;
     element?.showModal();
     return () => { if (element?.open) element.close(); };
   }, []);
+
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = window.setTimeout(() => setWaiting(false), OFFER_WAIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [waiting]);
 
   return (
     <dialog
@@ -81,6 +95,11 @@ function InstallHelp({ instructions, canInstall, busy, onInstall, onClose }: {
           <Download className="h-4 w-4" aria-hidden="true" />
           {busy ? 'Otwieranie instalatora…' : 'Zainstaluj aplikację'}
         </button>
+      ) : waiting ? (
+        <p role="status" className="mt-6 flex items-center gap-3 text-sm text-white/85">
+          <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-accent/30 border-t-accent motion-reduce:animate-none" aria-hidden="true" />
+          Przeglądarka przygotowuje instalację.
+        </p>
       ) : (
         <>
           <ol className="mt-6 list-decimal space-y-4 pl-5 text-sm leading-relaxed text-white/85">
@@ -89,7 +108,7 @@ function InstallHelp({ instructions, canInstall, busy, onInstall, onClose }: {
           <p className="mt-6 border-t border-white/10 pt-4 text-xs leading-relaxed text-[#b0b8c4]">{instructions.note}</p>
         </>
       )}
-      {!canInstall && instructions.helpUrl && (
+      {!canInstall && !waiting && instructions.helpUrl && (
         <a href={instructions.helpUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-1 text-xs text-accent hover:text-accent-light">
           Instrukcja Apple <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
         </a>
