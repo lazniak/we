@@ -4,13 +4,13 @@
  */
 export const CONTACT = {
   name: 'P. Lazniak',
-  role: 'HEXART Studio · automatyzacja AI, film, XR',
+  role: 'HEXART Studio · film, XR, systemy AI',
   phoneDisplay: '+48 662 016 430',
   phoneTel: '+48662016430',
   photo: '/photo-paul.jpg',
   /**
    * Where "Umów rozmowę" leads. Set NEXT_PUBLIC_BOOKING_URL to the real
-   * calendar; until then it falls back to the contact section on hexart.pl.
+   * calendar; the default is the studio booking page.
    */
-  bookingUrl: process.env.NEXT_PUBLIC_BOOKING_URL || 'https://hexart.pl/#contact',
+  bookingUrl: process.env.NEXT_PUBLIC_BOOKING_URL || 'https://hexart.pl/rezerwacja',
 } as const;

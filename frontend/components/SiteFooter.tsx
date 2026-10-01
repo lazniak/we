@@ -25,8 +25,8 @@ export default function SiteFooter({ panel = false }: { panel?: boolean }) {
         <p
           className={`text-[11px] text-white/25 text-center ${panel ? 'sm:text-left desk:text-center' : 'sm:text-left'}`}
         >
-          <span className="text-white/40">HEXART Studio</span>. Automatyzacja AI, produkcja
-          wideo i XR. Od 2004 roku.
+          <span className="text-white/40">HEXART Studio</span>. Film, XR i systemy AI. Od 2006
+          roku w&nbsp;produkcji, od 2020 jako HEXART.
         </p>
 
         <nav className="flex items-center gap-3 flex-wrap justify-center">

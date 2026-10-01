@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, RefreshCw } from 'lucide-react';
 import { pickPromo, type Promo } from '@/lib/hexartPromos';
-import PromoArt from './PromoArt';
+import PromoArt, { AiBadge, PROMO_ART, promoArtSrc } from './PromoArt';
 
 const LAST_SHOWN_KEY = 'hexart-promo-last';
 /** How long each card lingers before the reel advances on its own. */
@@ -46,7 +46,7 @@ export default function HexartPromo() {
     // Warm the incoming artwork so the cross-fade reveals a painted frame.
     try {
       const img = new window.Image();
-      img.src = `/promo/${promo.art}.webp`;
+      img.src = promoArtSrc(promo.art);
     } catch {
       /* ignore */
     }
@@ -168,6 +168,9 @@ function PosterFace({
           HEXART Studio · {promo.kicker}
         </span>
       </div>
+      {PROMO_ART[promo.art].ai && (
+        <AiBadge className="absolute left-4 top-11 !text-[10px]" />
+      )}
 
       {/* Copy - the question rests here and dissolves into the answer on hover.
           Both share one grid cell, so the block never resizes as they swap. */}

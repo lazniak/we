@@ -148,7 +148,7 @@ thumbnail, but never past the link's expiry.
 | `AGENT_API_KEY`              | *(unset)*        | Enables agent mode — see below       |
 | `AGENT_MAX_TRANSFER_BYTES`   | `50GB`           | Agent ceiling on one transfer        |
 | `AGENT_MAX_EXPIRATION_DAYS`  | `60`             | Agent ceiling on link lifetime       |
-| `NEXT_PUBLIC_BOOKING_URL`    | hexart.pl contact | Frontend, build time: target of "Umów rozmowę" |
+| `NEXT_PUBLIC_BOOKING_URL`    | hexart.pl/rezerwacja | Frontend, build time: target of "Umów rozmowę" |
 
 Limits (transfer size, file count, expiry range, retention) live in
 `backend/src/config.ts`.

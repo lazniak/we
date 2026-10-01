@@ -21,12 +21,16 @@ export interface Promo {
  * A few cards speak to a specific persona (streamer, journalist, museum); their
  * artwork slots (facemapping / live / history) are reused to illustrate that
  * need, so the banner still matches the copy.
+ *
+ * Every claim about the studio comes from the brandbook (marka.md): years,
+ * projects and what was done in them. Nothing here may be rounded up or made
+ * up; a case study card names only what that project actually delivered.
  */
 export const HEXART_PROMOS: Promo[] = [
   {
     kicker: 'Automatyzacja',
     title: 'Ręcznie robisz oferty, faktury i raporty?',
-    body: 'AI przejmie tę powtarzalną robotę. Wdrożenie w tydzień, nie w rok.',
+    body: 'AI przejmie tę powtarzalną robotę. Najpierw pokażemy działający prototyp.',
     cta: 'Zobacz, co zautomatyzować',
     href: 'https://hexart.pl/lp/automatyzacja-sprzedazy',
     art: 'automation',
@@ -48,12 +52,20 @@ export const HEXART_PROMOS: Promo[] = [
     art: 'rag',
   },
   {
-    kicker: 'Case study · Jetson',
+    kicker: 'Case study · Jetson ONE',
     title: 'Klient mówi, że się nie da?',
-    body: 'Zbudowaliśmy symulator lotu pasażerskiego drona w VR. Pokażemy, co jest możliwe.',
+    body: 'Dla Jetson ONE zbudowaliśmy symulator lotu: cyfrowy bliźniak eVTOL w Unreal Engine, z platformą ruchową i goglami VR.',
     cta: 'Zobacz projekt',
     href: 'https://hexart.pl/case-studies/jetson',
     art: 'jetson',
+  },
+  {
+    kicker: 'Case study · Wojna1939.pl',
+    title: 'Historia, której nie da się już nakręcić?',
+    body: 'Do prequela Wojna1939.pl napisaliśmy pipeline i wygenerowaliśmy sekwencje serialu.',
+    cta: 'Zobacz projekt',
+    href: 'https://hexart.pl/case-studies/wojna-1939',
+    art: 'wojna1939',
   },
   {
     kicker: 'Film',
@@ -82,7 +94,7 @@ export const HEXART_PROMOS: Promo[] = [
   {
     kicker: 'Streaming',
     title: 'Jesteś streamerem?',
-    body: 'Damy Ci grafikę 3D i efekty na twarzy na żywo. Zero opóźnień.',
+    body: 'Grafika 3D na twarzy, na żywo. Nasz zespół robił to już w 2016 roku, w finale talent show.',
     cta: 'Zobacz technologię',
     href: 'https://hexart.pl/case-studies/facemapping',
     art: 'facemapping',
@@ -90,7 +102,7 @@ export const HEXART_PROMOS: Promo[] = [
   {
     kicker: 'Dziennikarstwo',
     title: 'Jesteś dziennikarzem?',
-    body: 'AI przekopie setki stron źródeł i poda fakty z cytatami. W minuty, nie dni.',
+    body: 'AI przeczyta setki stron źródeł i poda fakty z cytatami.',
     cta: 'Zobacz, jak to działa',
     href: 'https://hexart.pl/lp/prywatna-baza-wiedzy-rag',
     art: 'live',
@@ -114,7 +126,7 @@ export const HEXART_PROMOS: Promo[] = [
   {
     kicker: 'Marki',
     title: 'Marka wygląda taniej, niż jest warta?',
-    body: 'Zrobimy logo i pełną identyfikację. Projektujemy marki od 2004 roku.',
+    body: 'Zaprojektujemy logo, system identyfikacji i corporate design 360°.',
     cta: 'Zobacz nasze marki',
     href: 'https://hexart.pl/uslugi/marki',
     art: 'branding',
@@ -122,7 +134,7 @@ export const HEXART_PROMOS: Promo[] = [
   {
     kicker: 'Grafika AI',
     title: 'Potrzebujesz mnóstwo grafik i packshotów?',
-    body: 'Generator zna Twoją markę i zrobi je w godzinę. Nie stock.',
+    body: 'Generator trzyma się Twojej marki i robi je seryjnie. Bez stocków.',
     cta: 'Wypróbuj generator',
     href: 'https://hexart.pl/lp/generator-obrazow-ai',
     art: 'genai',
@@ -130,10 +142,10 @@ export const HEXART_PROMOS: Promo[] = [
   {
     kicker: 'Konsultacja',
     title: 'Nie wiesz, co oddać AI?',
-    body: 'Doradzimy, co zautomatyzować, a co zostawić. Jesteśmy w branży od 2004.',
+    body: 'Doradzimy, co zautomatyzować, a co zostawić. W produkcji od 2006 roku, od 2020 jako HEXART.',
     cta: 'Umów konsultację',
     href: 'https://hexart.pl/lp/konsulting-ai',
-    art: 'heritage',
+    art: 'paul',
   },
   {
     kicker: 'Bez ściemy',

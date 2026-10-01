@@ -17,10 +17,10 @@ export const metadata: Metadata = {
   // so anyone who glances at the tab or a shared link sees the studio name.
   title: 'hexart.io',
   description:
-    'Wyślij do 5 GB bez zakładania konta. Katalogi zachowują strukturę, link wygasa po 3–7 dniach, a pliki kasują się same. Od HEXART Studio — automatyzacja AI, produkcja wideo i XR.',
+    'Wyślij do 5 GB bez zakładania konta. Katalogi zachowują strukturę, link wygasa po 3–7 dniach, a pliki kasują się same. Od HEXART Studio: film, XR i systemy AI.',
   applicationName: 'hexart.io',
   openGraph: {
-    title: 'hexart.io — szybki transfer plików od HEXART Studio',
+    title: 'hexart.io. Szybki transfer plików od HEXART Studio',
     description:
       'Wyślij do 5 GB bez zakładania konta. Katalogi zachowują strukturę, a pliki kasują się same po wygaśnięciu linku.',
     type: 'website',

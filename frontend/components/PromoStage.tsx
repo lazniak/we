@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { HEXART_PROMOS } from '@/lib/hexartPromos';
 import { CONTACT } from '@/lib/contact';
 import { DESK_QUERY, useMediaQuery, useReducedMotion } from '@/lib/hooks';
+import { AiBadge, PROMO_ART, promoArtSrc } from './PromoArt';
 
 /** How long a card stays before the next one dissolves in. */
 const STAGE_MS = 9000;
@@ -75,7 +76,7 @@ function Stage() {
     // Warm the next picture so its dissolve reveals a painted frame.
     const upcoming = HEXART_PROMOS[order[(position + 1) % count]];
     const img = new window.Image();
-    img.src = `/promo/${upcoming.art}.webp`;
+    img.src = promoArtSrc(upcoming.art);
   }, [position, order, count]);
 
   const dropCovered = useCallback((key: number) => {
@@ -147,12 +148,12 @@ function Stage() {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`/promo/${art}.webp`}
+                  src={promoArtSrc(art)}
                   alt=""
                   draggable={false}
                   decoding="async"
                   className="h-full w-full object-cover select-none"
-                  style={{ objectPosition: '64% 50%' }}
+                  style={{ objectPosition: PROMO_ART[art].focus ?? '64% 50%' }}
                 />
               </div>
             </div>
@@ -160,8 +161,10 @@ function Stage() {
         })}
       </div>
 
-      {/* Low-key grade: dark under the panel and the copy, open in the middle. */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0a0a0c] from-0% via-[#0a0a0c]/55 via-35% to-[#0a0a0c]/5 to-80%" />
+      {/* Low-key grade. The left edge stays light on purpose: the panel is
+          glass and should show the picture, blurred, rather than a black wall.
+          Depth for the copy comes from the bottom and the vignette. */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0a0a0c]/45 from-0% via-[#0a0a0c]/20 via-35% to-transparent to-65%" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0a0a0c]/95 from-0% via-[#0a0a0c]/35 via-40% to-transparent to-70%" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-[#0a0a0c]/70 to-transparent" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_60%_45%,transparent_55%,rgba(5,5,7,0.65)_100%)]" />
@@ -176,6 +179,15 @@ function Stage() {
         <div className="relative flex justify-end">
           <ContactCard />
         </div>
+
+        {PROMO_ART[promo.art].ai && (
+          <div
+            key={`ai-${position}`}
+            className="stage-rise pointer-events-none absolute bottom-10 right-10 xl:bottom-12 xl:right-16"
+          >
+            <AiBadge />
+          </div>
+        )}
 
         <div
           className={clsx('relative max-w-[42rem]', paused && 'stage-paused')}

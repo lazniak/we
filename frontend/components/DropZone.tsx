@@ -102,9 +102,11 @@ export default function DropZone({ onFilesSelected, disabled }: DropZoneProps) {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  // Neither of these is remembered between visits: a link that silently
-  // burns itself or asks for a password must always be a deliberate choice.
-  const [oneTime, setOneTime] = useState(false);
+  // A link disappears after pickup unless the sender turns that off: files
+  // should not sit on the server longer than the handover needs. The summary
+  // on the folded "Zaawansowane" row says so, and nothing here is remembered
+  // between visits. The API default stays off for scripted callers.
+  const [oneTime, setOneTime] = useState(true);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 

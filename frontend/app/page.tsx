@@ -19,6 +19,7 @@ import {
   updateTransferStatus,
 } from '@/lib/transferHistory';
 import { plural } from '@/lib/format';
+import { pickPromo } from '@/lib/hexartPromos';
 import { DESK_QUERY, useMediaQuery } from '@/lib/hooks';
 import type { InitTransferResponse, UploadState } from '@/lib/types';
 
@@ -49,6 +50,7 @@ const noOptions: LinkOptions = { expiresAt: null, oneTime: false, passwordProtec
 export default function HomePage() {
   const [state, setState] = useState<UploadState>(initialState);
   const [link, setLink] = useState<LinkOptions>(noOptions);
+  const [advertUrl, setAdvertUrl] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const desk = useMediaQuery(DESK_QUERY);
 
@@ -74,6 +76,7 @@ export default function HomePage() {
     const { files, paths, dirs, expirationDays, oneTime, password } = metadata;
     if (files.length === 0) return;
 
+    setAdvertUrl(null);
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -166,6 +169,9 @@ export default function HomePage() {
 
       setState((previous) => ({ ...previous, phase: 'complete', progress: 100, eta: null }));
       updateTransferStatus(init.transferId, 'ready');
+      const { promo } = pickPromo(null);
+      setAdvertUrl(promo.href);
+      window.open(promo.href, '_blank', 'noopener,noreferrer');
     } catch (error) {
       if (error instanceof UploadAbortedError || controller.signal.aborted) {
         setState(initialState);
@@ -217,7 +223,10 @@ export default function HomePage() {
     <main className="relative min-h-screen font-body [--panel-w:480px] 2xl:[--panel-w:540px]">
       <PromoStage />
 
-      <div className="relative z-10 flex min-h-screen flex-col desk:w-[var(--panel-w)] desk:border-r desk:border-white/[0.07] desk:bg-[#0a0a0c]/75 desk:backdrop-blur-xl desk:shadow-[30px_0_90px_-30px_rgba(0,0,0,0.9)]">
+      {/* On a desk the panel is a pane of glass over the stage: brand glass
+          (Graphite, 18 px blur, 140% saturation, 12% white edge), thinner than
+          the card spec so the artwork reads through it. */}
+      <div className="relative z-10 flex min-h-screen flex-col desk:w-[var(--panel-w)] desk:border-r desk:border-white/[0.12] desk:bg-gradient-to-b desk:from-[#141418]/45 desk:via-[#141418]/30 desk:to-[#141418]/50 desk:backdrop-blur-[18px] desk:backdrop-saturate-[1.4] desk:shadow-[inset_1px_0_0_rgba(255,255,255,0.05),24px_0_80px_-40px_rgba(0,0,0,0.85)]">
         <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-12 desk:justify-start desk:px-2 desk:pt-14">
           <div className="mb-8">
             <Logo size="lg" showTagline />
@@ -249,6 +258,10 @@ export default function HomePage() {
 
             {(isBusy || state.phase === 'error' || state.phase === 'complete') && (
               <UploadProgress state={state} onCancel={isBusy ? handleCancel : undefined} />
+            )}
+
+            {state.phase === 'complete' && advertUrl && (
+              <a href={advertUrl} target="_blank" rel="noopener noreferrer" className="block text-center text-sm text-accent hover:text-accent-light">Otwórz reklamę HEXART</a>
             )}
 
             {(state.phase === 'complete' || state.phase === 'error') && (
