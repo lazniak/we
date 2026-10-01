@@ -3,13 +3,31 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, RefreshCw } from 'lucide-react';
 import { pickPromo, type Promo } from '@/lib/hexartPromos';
-import PromoArt, { AiBadge, PROMO_ART, promoArtSrc } from './PromoArt';
+import PromoArt, { AiBadge, hasPromoFilm, PROMO_ART, usePromoReady, type PromoArtKey } from './PromoArt';
 
 const LAST_SHOWN_KEY = 'hexart-promo-last';
 /** How long each card lingers before the reel advances on its own. */
 const AUTO_ROTATE_MS = 11000;
 
 type Layer = { id: number; promo: Promo; visible: boolean };
+
+function lastShown(): number | null {
+  try {
+    const stored = window.sessionStorage.getItem(LAST_SHOWN_KEY);
+    const index = stored === null ? null : Number(stored);
+    return Number.isFinite(index) ? index : null;
+  } catch {
+    return null; /* private mode - repeats are acceptable */
+  }
+}
+
+function rememberShown(index: number) {
+  try {
+    window.sessionStorage.setItem(LAST_SHOWN_KEY, String(index));
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * A 16:9 studio banner for phones and portrait screens. Its headline and link
@@ -19,50 +37,43 @@ type Layer = { id: number; promo: Promo; visible: boolean };
  * Between promos the poster cross-fades: the outgoing and incoming faces are
  * stacked and their opacities swap, so the change is a smooth dissolve rather
  * than the old fade-to-nothing blink. A different promo shows on every visit,
- * it auto-advances (paused on hover/focus, off for reduced motion), and there
- * is a manual "show another" control.
+ * it auto-advances once the next card has downloaded (paused on hover/focus,
+ * off for reduced motion), and there is a manual "show another" control.
  */
 export default function HexartPromo() {
   const [layers, setLayers] = useState<Layer[]>([]);
   const idRef = useRef(0);
   const pausedRef = useRef(false);
 
-  const nextPromo = useCallback((): Promo => {
-    let previous: number | null = null;
-    try {
-      const stored = window.sessionStorage.getItem(LAST_SHOWN_KEY);
-      previous = stored === null ? null : Number(stored);
-    } catch {
-      /* private mode - repeats are acceptable */
-    }
-    const { promo, index } = pickPromo(Number.isFinite(previous) ? previous : null);
-    try {
-      window.sessionStorage.setItem(LAST_SHOWN_KEY, String(index));
-    } catch {
-      /* ignore */
-    }
-    // Warm the incoming artwork so the cross-fade reveals a painted frame.
-    try {
-      const img = new window.Image();
-      img.src = promoArtSrc(promo.art);
-    } catch {
-      /* ignore */
-    }
-    return promo;
+  // The next card is chosen ahead and downloads in the background, film and
+  // still, so it plays at once when it comes up.
+  const upcomingRef = useRef<{ promo: Promo; index: number } | null>(null);
+  const [upcomingArt, setUpcomingArt] = useState<PromoArtKey | null>(null);
+  const upcomingReady = usePromoReady(upcomingArt, '720');
+
+  const queue = useCallback((after: number) => {
+    const choice = pickPromo(after);
+    upcomingRef.current = choice;
+    setUpcomingArt(choice.promo.art);
   }, []);
 
   useEffect(() => {
-    setLayers([{ id: ++idRef.current, promo: nextPromo(), visible: false }]);
-  }, [nextPromo]);
+    const first = pickPromo(lastShown());
+    rememberShown(first.index);
+    setLayers([{ id: ++idRef.current, promo: first.promo, visible: false }]);
+    queue(first.index);
+  }, [queue]);
 
   const swap = useCallback(() => {
-    const promo = nextPromo();
+    const next = upcomingRef.current;
+    if (!next) return;
+    rememberShown(next.index);
+    const id = ++idRef.current;
     setLayers((prev) =>
-      [...prev.map((l) => ({ ...l, visible: false })), { id: ++idRef.current, promo, visible: false }].slice(
-        -3,
-      ),
+      [...prev.map((l) => ({ ...l, visible: false })), { id, promo: next.promo, visible: false }].slice(-3),
     );
-  }, [nextPromo]);
+    queue(next.index);
+  }, [queue]);
 
   // Fade the newest face up shortly after it mounts at zero.
   useEffect(() => {
@@ -85,17 +96,30 @@ export default function HexartPromo() {
     return () => clearTimeout(timer);
   }, [layers]);
 
-  // Gentle auto-advance; stands down while hovered/focused, tab hidden, reduced motion.
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const id = window.setInterval(() => {
-      if (!pausedRef.current && !document.hidden) swap();
-    }, AUTO_ROTATE_MS);
-    return () => window.clearInterval(id);
-  }, [swap]);
+  // Gentle auto-advance: due a while after each card appears, taken only once
+  // the next card has downloaded. Stands down while hovered/focused, tab
+  // hidden, reduced motion.
+  const topId = layers.length ? layers[layers.length - 1].id : null;
+  const [due, setDue] = useState(false);
+  const [recheck, setRecheck] = useState(0);
 
-  if (layers.length === 0) return null;
-  const topId = layers[layers.length - 1].id;
+  useEffect(() => {
+    setDue(false);
+    if (topId === null || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = window.setTimeout(() => setDue(true), AUTO_ROTATE_MS);
+    return () => window.clearTimeout(timer);
+  }, [topId]);
+
+  useEffect(() => {
+    if (!due || !upcomingReady) return;
+    if (pausedRef.current || document.hidden) {
+      const retry = window.setTimeout(() => setRecheck((n) => n + 1), 1000);
+      return () => window.clearTimeout(retry);
+    }
+    swap();
+  }, [due, upcomingReady, recheck, swap]);
+
+  if (topId === null) return null;
 
   return (
     <aside className="w-full mx-auto mt-8 animate-fade-in">
@@ -147,12 +171,12 @@ function PosterFace({
       rel="noopener noreferrer"
       tabIndex={active ? 0 : -1}
       aria-hidden={!active}
-      className={`group/poster absolute inset-0 block transition-opacity duration-[600ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-accent ${
+      className={`chamfer chamfer-lg-inset group/poster absolute inset-0 block transition-opacity duration-[600ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-accent ${
         visible ? 'opacity-100' : 'opacity-0'
       } ${active ? '' : 'pointer-events-none'}`}
     >
-      {/* Full 16:9 artwork, slow Ken Burns push. */}
-      <div className="absolute inset-0 animate-kenburns">
+      {/* Full 16:9 artwork: a film moves on its own, a still gets a slow Ken Burns push. */}
+      <div className={`absolute inset-0 ${hasPromoFilm(promo.art) ? '' : 'animate-kenburns'}`}>
         <PromoArt art={promo.art} />
       </div>
 
@@ -168,7 +192,7 @@ function PosterFace({
         </span>
       </div>
       {PROMO_ART[promo.art].ai && (
-        <AiBadge className="absolute left-3 top-8 !text-[10px] sm:left-5 sm:top-11" />
+        <AiBadge art={promo.art} className="absolute left-3 top-8 !text-[10px] sm:left-5 sm:top-11" />
       )}
 
       <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6">

@@ -1,6 +1,6 @@
 /* Only public interface assets are cached. Transfer requests bypass this worker. */
 const PREFIX = 'hexart-transfer-';
-const VERSION = '20261001-1';
+const VERSION = '20261001-2';
 const SHELL = `${PREFIX}shell-${VERSION}`;
 const ASSETS = `${PREFIX}assets-${VERSION}`;
 const OFFLINE = '/offline.html';
@@ -58,7 +58,7 @@ self.addEventListener('fetch', (event) => {
   // deliberately outside this allowlist, including requests with query tokens.
   const publicAsset = /^\/_next\/static\//.test(url.pathname)
     || /^\/(fonts|icons)\/[^/]+\.(woff2|png|svg|ico)$/.test(url.pathname)
-    || /^\/promo\/[^/]+\.webp$/.test(url.pathname);
+    || /^\/promo\/(video\/)?[^/]+\.webp$/.test(url.pathname);
   if (!publicAsset || [...url.searchParams.keys()].some((key) => key !== 'v')) return;
   event.respondWith((async () => {
     const cache = await caches.open(ASSETS);

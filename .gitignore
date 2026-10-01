@@ -63,3 +63,8 @@ frontend/public/bg-loop.*
 
 # Vendored viewer libraries (three.js, online-3d-viewer, niivue) - deployed to VPS out of band
 frontend/public/vendor/
+
+# Promo film originals: encoded web renditions live in frontend/public/promo/video
+frontend/public/promo/*.mp4
+frontend/public/promo/*.png
+frontend/assets/promo-sources/video/

@@ -132,4 +132,13 @@ describe('public-only service worker cache', () => {
     expect(sw.stores.has('another-app-cache')).toBe(true);
     expect(sw.stores.has('hexart-transfer-assets-old')).toBe(false);
   });
+  test('keeps film posters offline but never stores the films', async () => {
+    const sw = worker();
+    await sw.lifecycle('install');
+    expect(await (await sw.request('/promo/video/film.webp?v=abc')).text()).toBe('fresh');
+    expect(await sw.request('/promo/video/film-720.mp4?v=abc')).toBeUndefined();
+    expect(await sw.request('/promo/video/film-1080.webm?v=abc')).toBeUndefined();
+    expect(await sw.request('/promo/video/film-720.mp4?v=abc', { headers: { Range: 'bytes=0-' } })).toBeUndefined();
+    expect(await sw.request('/promo/video/nested/film.webp')).toBeUndefined();
+  });
 });

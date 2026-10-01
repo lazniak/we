@@ -6,7 +6,8 @@
     "dev": "next dev -p 3002",
     "build": "next build",
     "start": "next start -p 3002",
-    "lint": "next lint"
+    "lint": "next lint",
+    "promo:video": "node scripts/encode-promo-videos.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

@@ -6,7 +6,7 @@ import clsx from 'clsx';
 import { HEXART_PROMOS } from '@/lib/hexartPromos';
 import { CONTACT } from '@/lib/contact';
 import { DESK_QUERY, useMediaQuery, useReducedMotion } from '@/lib/hooks';
-import { AiBadge, PROMO_ART, promoArtSrc } from './PromoArt';
+import { AiBadge, hasPromoFilm, PROMO_ART, PromoMedia, usePromoReady } from './PromoArt';
 
 /** How long a card stays before the next one dissolves in. */
 const STAGE_MS = 9000;
@@ -21,9 +21,10 @@ const DRIFTS = [
 /**
  * The studio ad behind the upload panel on a large landscape screen.
  *
- * Built like a title sequence rather than a banner: full-bleed artwork that
- * drifts slowly and follows the pointer by a few pixels, cards that change
- * with a film dissolve out of soft focus, a headline revealed word by word,
+ * Built like a title sequence rather than a banner: full-bleed artwork (a
+ * silent looping film, or a still that drifts slowly) that follows the pointer
+ * by a few pixels, cards that change with a film dissolve out of soft focus,
+ * a headline revealed word by word,
  * fine grain, viewfinder corner marks. Nothing bounces or glows. The contact
  * card sits in the top right corner. On phones and portrait screens this is
  * not mounted at all; the 16:9 banner and business card take its place.
@@ -72,12 +73,19 @@ function Stage() {
       layerKey.current += 1;
       return [...previous.slice(-1), { key: layerKey.current, position }];
     });
+  }, [position]);
 
-    // Warm the next picture so its dissolve reveals a painted frame.
-    const upcoming = HEXART_PROMOS[order[(position + 1) % count]];
-    const img = new window.Image();
-    img.src = promoArtSrc(upcoming.art);
-  }, [position, order, count]);
+  // The next card downloads in the background, film and still. When the
+  // progress line runs out the reel advances only once it has, so the next
+  // film plays the moment it dissolves in.
+  const upcomingReady = usePromoReady(HEXART_PROMOS[order[(position + 1) % count]].art, '1080');
+  const [due, setDue] = useState(false);
+
+  useEffect(() => setDue(false), [position]);
+
+  useEffect(() => {
+    if (due && upcomingReady) go(1);
+  }, [due, upcomingReady, go]);
 
   const dropCovered = useCallback((key: number) => {
     setLayers((previous) =>
@@ -142,19 +150,12 @@ function Stage() {
                 if (event.target === event.currentTarget) dropCovered(layer.key);
               }}
             >
+              {/* A film carries its own motion; a still drifts. */}
               <div
-                className="absolute inset-0 stage-drift"
+                className={clsx('absolute inset-0', !hasPromoFilm(art) && 'stage-drift')}
                 style={{ '--drift-x': driftX, '--drift-y': driftY } as React.CSSProperties}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={promoArtSrc(art)}
-                  alt=""
-                  draggable={false}
-                  decoding="async"
-                  className="h-full w-full object-cover select-none"
-                  style={{ objectPosition: PROMO_ART[art].focus ?? '64% 50%', transform: PROMO_ART[art].zoom ? 'scale(' + PROMO_ART[art].zoom + ')' : undefined }}
-                />
+                <PromoMedia art={art} size="1080" focus="64% 50%" />
               </div>
             </div>
           );
@@ -193,7 +194,7 @@ function Stage() {
             key={`ai-${position}`}
             className="stage-rise pointer-events-none absolute bottom-10 right-10 xl:bottom-12 xl:right-16"
           >
-            <AiBadge />
+            <AiBadge art={promo.art} />
           </div>
         )}
 
@@ -259,7 +260,7 @@ function Stage() {
                 key={position}
                 className="stage-progress absolute inset-0 bg-accent"
                 style={{ '--stage-ms': `${STAGE_MS}ms` } as React.CSSProperties}
-                onAnimationEnd={() => go(1)}
+                onAnimationEnd={() => setDue(true)}
               />
             </div>
 
@@ -343,7 +344,7 @@ function ContactCard() {
       <div className="mt-4 flex gap-2">
         <a
           href={`tel:${CONTACT.phoneTel}`}
-          className="chamfer chamfer-sm flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap bg-accent px-4 py-2.5 text-sm font-medium text-[#0a0a0c] transition-colors duration-200 hover:bg-accent-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white"
+          className="chamfer chamfer-sm flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap bg-accent px-4 py-2.5 text-sm font-medium text-[#0a0a0c] transition-colors duration-200 hover:bg-accent-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white [--ring:#fff]"
         >
           <Phone className="h-4 w-4" />
           Zadzwoń
