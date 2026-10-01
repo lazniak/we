@@ -2,10 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import JSZip from 'jszip';
 import sharp from 'sharp';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { get, type IncomingMessage } from 'node:http';
 
 const PORT = 3199;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -15,14 +14,16 @@ const root = mkdtempSync(join(tmpdir(), 'we-e2e-'));
 const uploadsDir = join(root, 'uploads');
 const dataDir = join(root, 'data');
 const thumbsDir = join(root, 'thumbs');
+const pickupGate = join(root, 'pickup-gate');
 
 let server: ReturnType<typeof Bun.spawn> | null = null;
 
 async function startServer() {
-  server = Bun.spawn(['bun', 'src/index.ts'], {
+  server = Bun.spawn(['bun', '--preload', './src/test-support/pickupGate.ts', 'src/index.ts'], {
     cwd: import.meta.dir.replace(/[\\/]src$/, ''),
     env: {
       ...process.env,
+      E2E_PICKUP_GATE: pickupGate,
       PORT: String(PORT),
       UPLOADS_DIR: uploadsDir,
       DATA_DIR: dataDir,
@@ -407,11 +408,12 @@ describe('one-time transfers', () => {
     const init = await createTransfer([{ path: 'duzy.bin', data: big }], [], 3, { oneTime: true });
     const id = init.transferId;
 
-    // A paused HTTP response applies socket backpressure; fetch may buffer the whole body.
-    const res = await new Promise<IncomingMessage>((resolve, reject) => {
-      get(`${BASE}/api/transfer/${id}/download`, resolve).on('error', reject);
-    });
-    expect(res.statusCode).toBe(200);
+    writeFileSync(pickupGate, id);
+    const controller = new AbortController();
+    const res = await fetch(`${BASE}/api/transfer/${id}/download`, { signal: controller.signal });
+    expect(res.status).toBe(200);
+    const reader = res.body!.getReader();
+    await reader.read();
 
     // While the first download runs, nobody else gets in.
     const second = await fetch(`${BASE}/api/transfer/${id}/download`);
@@ -420,7 +422,9 @@ describe('one-time transfers', () => {
     const during = await (await fetch(`${BASE}/api/transfer/${id}`)).json();
     expect(during.claimed).toBe(true);
 
-    res.destroy();
+    controller.abort();
+    await reader.cancel().catch(() => undefined);
+    rmSync(pickupGate, { force: true });
 
     let info = { status: '', claimed: true };
     for (let i = 0; i < 60 && info.claimed; i++) {
