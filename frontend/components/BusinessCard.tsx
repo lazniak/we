@@ -63,7 +63,7 @@ export default function BusinessCard() {
         <div className="mt-4 grid grid-cols-2 gap-2">
           <a
             href={`tel:${CONTACT.phoneTel}`}
-            className="chamfer chamfer-sm flex min-h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap bg-accent px-2 py-2.5 text-[13px] font-medium text-[#0a0a0c] transition-colors duration-200 hover:bg-accent-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white sm:text-sm"
+            className="chamfer chamfer-sm flex min-h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap bg-accent px-2 py-2.5 text-[13px] font-medium text-[#0a0a0c] transition-colors duration-200 hover:bg-accent-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white [--ring:#fff] sm:text-sm"
             aria-label={`Zadzwoń pod ${CONTACT.phoneDisplay}`}
           >
             <Phone className="w-4 h-4" />

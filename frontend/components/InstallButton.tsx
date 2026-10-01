@@ -77,7 +77,7 @@ function InstallHelp({ instructions, canInstall, busy, onInstall, onClose }: {
       </div>
       <p id="install-description" className="mt-4 text-sm leading-relaxed text-[#b0b8c4]">Wysyłaj i odbieraj pliki w osobnym oknie aplikacji.</p>
       {canInstall ? (
-        <button type="button" onClick={onInstall} disabled={busy} className="chamfer chamfer-sm mt-6 inline-flex min-h-11 items-center gap-2 bg-accent px-4 text-sm font-medium text-[#0a0a0c] hover:bg-accent-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white disabled:opacity-50">
+        <button type="button" onClick={onInstall} disabled={busy} className="chamfer chamfer-sm mt-6 inline-flex min-h-11 items-center gap-2 bg-accent px-4 text-sm font-medium text-[#0a0a0c] hover:bg-accent-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white [--ring:#fff] disabled:opacity-50">
           <Download className="h-4 w-4" aria-hidden="true" />
           {busy ? 'Otwieranie instalatora…' : 'Zainstaluj aplikację'}
         </button>

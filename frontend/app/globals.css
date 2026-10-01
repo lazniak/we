@@ -413,26 +413,80 @@ body::before {
   --cut-y: 16px;
 }
 
-/* Keep positioned controls positioned; static frames anchor their own edge. */
-:where(.chamfer-line) {
+/* Fills a 1px chamfer-lg frame edge to edge: its cut runs along the inner
+   side of the frame's diagonal (see the 0.423px note below). */
+.chamfer-lg-inset {
+  --cut-y: calc(16px - 0.423px);
+}
+
+/* Keep positioned controls positioned; static ones anchor their own edge and
+   focus ring. */
+:where(.chamfer) {
   position: relative;
 }
 
-/* Complete the clipped diagonal above the artwork. Use the same frame color,
-   including hover changes, and the same geometry in every browser. */
+/* --edge: the frame's border width, so details inside line up with it. */
+.chamfer-line {
+  --edge: 1px;
+}
+
+/* Complete the clipped diagonal of a 1px frame, above any artwork, in the
+   frame's own color (hover changes included). The pseudo element fills its
+   box with that color through a thick left border, then clips itself to the
+   triangle between the padding box corner and a line 1px inside the cut. The
+   frame's clip-path trims the rest, so exactly a 1px band survives along the
+   diagonal: the frame's clip is its only antialiased outer edge, as for the
+   straight sides, and the band stays inside the padding box, so it never
+   doubles over the top or right border and overflow-hidden cannot clip it.
+   0.732px (tan 60deg - 1) and 0.423px (1 - 1/tan 60deg) place that inner
+   line where it meets the padding box, for a 1px border at 30 degrees. */
 .chamfer-line::after {
   content: '';
   position: absolute;
   z-index: 40;
-  top: -1px;
-  right: calc(var(--cut-x) - var(--cut-y) * 2 - 1px);
-  width: calc(var(--cut-y) * 2);
-  height: 0;
-  border-top: 1px solid;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: var(--cut-y);
+  border-left: calc(var(--cut-x) + 2px) solid;
   border-color: inherit;
-  transform: rotate(30deg);
-  transform-origin: top left;
+  clip-path: polygon(calc(100% - var(--cut-x) + 0.732px) 0, 100% 0, 100% calc(var(--cut-y) - 0.423px));
   pointer-events: none;
+}
+
+/* Focus ring along the cut. The clip would cut an outline off the diagonal,
+   so the ring is a 2px chamfered frame of its own, 1px inside the padding
+   box, in --ring (gold unless the control sets another). A cut inset by d
+   keeps the angle when its height shrinks by 0.423 * d. Forced colors keep
+   the native outline, which the system recolors. */
+.chamfer:focus-visible {
+  /* Over the focus-visible:outline-* variants, which Tailwind emits later. */
+  outline-color: transparent !important;
+}
+
+.chamfer:focus-visible::before {
+  --ring-y: calc(var(--cut-y) - 0.423 * (var(--edge, 0px) + 1px));
+  --ring-x: calc(var(--ring-y) * 1.732);
+  --hole-y: calc(var(--ring-y) - 0.846px);
+  --hole-x: calc(var(--hole-y) * 1.732);
+  content: '';
+  position: absolute;
+  z-index: 41;
+  inset: 1px;
+  background: var(--ring, #d1ae53);
+  clip-path: polygon(
+    evenodd,
+    0 0, calc(100% - var(--ring-x)) 0, 100% var(--ring-y), 100% 100%, 0 100%, 0 0,
+    2px 2px, 2px calc(100% - 2px), calc(100% - 2px) calc(100% - 2px),
+    calc(100% - 2px) calc(2px + var(--hole-y)), calc(100% - 2px - var(--hole-x)) 2px, 2px 2px
+  );
+  pointer-events: none;
+}
+
+@media (forced-colors: active) {
+  .chamfer:focus-visible::before {
+    display: none;
+  }
 }
 
 /* Hexagon, point up: the brand's mask for portraits. */
