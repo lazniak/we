@@ -26,7 +26,7 @@ export default function BusinessCard() {
 
   return (
     <aside className="w-full mx-auto mt-3 animate-fade-in">
-      <div className="chamfer chamfer-lg border border-white/10 bg-[#141418]/75 p-4 backdrop-blur-xl sm:p-5">
+      <div className="chamfer chamfer-lg chamfer-line border border-white/10 bg-[#141418]/75 p-4 backdrop-blur-xl sm:p-5">
         <div className="flex items-center gap-4">
           <div className="relative shrink-0">
             <div className="hex-mask flex h-16 w-14 items-center justify-center overflow-hidden bg-[#24242a] sm:h-[76px] sm:w-[66px]">
@@ -73,7 +73,7 @@ export default function BusinessCard() {
             href={CONTACT.bookingUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="chamfer chamfer-sm flex min-h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap border border-accent/40 px-2 py-2.5 text-[13px] text-white/90 transition-colors duration-200 hover:border-accent hover:bg-accent/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-accent sm:text-sm"
+            className="chamfer chamfer-sm chamfer-line flex min-h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap border border-accent/40 px-2 py-2.5 text-[13px] text-white/90 transition-colors duration-200 hover:border-accent hover:bg-accent/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-accent sm:text-sm"
             aria-label="Umów rozmowę w HEXART"
           >
             <CalendarClock className="w-4 h-4" />

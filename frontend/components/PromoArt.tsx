@@ -73,7 +73,7 @@ export function promoArtSrc(art: PromoArtKey) {
 export function AiBadge({ className = '' }: { className?: string }) {
   return (
     <span
-      className={`chamfer chamfer-sm inline-flex items-center gap-2 border border-white/[0.16] bg-[#0a0a0c]/[0.62] py-1 pl-1 pr-3 text-[11px] font-medium leading-tight text-white backdrop-blur-[12px] ${className}`}
+      className={`chamfer chamfer-sm chamfer-line inline-flex items-center gap-2 border border-white/[0.16] bg-[#0a0a0c]/[0.62] py-1 pl-1 pr-3 text-[11px] font-medium leading-tight text-white backdrop-blur-[12px] ${className}`}
     >
       <span className="grid h-[1.6em] min-w-[1.9em] place-content-center bg-accent px-1 font-label font-bold tracking-[0.06em] text-[#0a0a0c]">
         AI

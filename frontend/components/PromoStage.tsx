@@ -26,7 +26,7 @@ const DRIFTS = [
  * with a film dissolve out of soft focus, a headline revealed word by word,
  * fine grain, viewfinder corner marks. Nothing bounces or glows. The contact
  * card sits in the top right corner. On phones and portrait screens this is
- * not mounted at all; the square poster and business card take its place.
+ * not mounted at all; the 16:9 banner and business card take its place.
  */
 export default function PromoStage() {
   const desk = useMediaQuery(DESK_QUERY);
@@ -303,7 +303,7 @@ function ContactCard() {
   const [photoOk, setPhotoOk] = useState(true);
 
   return (
-    <div className="pointer-events-auto chamfer chamfer-lg w-[20rem] border border-white/10 bg-[#0a0a0c]/55 p-5 backdrop-blur-md stage-rise">
+    <div className="pointer-events-auto chamfer chamfer-lg chamfer-line w-[20rem] border border-white/10 bg-[#0a0a0c]/55 p-5 backdrop-blur-md stage-rise">
       <div className="flex items-center gap-4">
         <div className="hex-mask relative h-16 w-14 shrink-0 bg-gradient-to-br from-accent/30 to-accent/5">
           {photoOk ? (
@@ -343,7 +343,7 @@ function ContactCard() {
       <div className="mt-4 flex gap-2">
         <a
           href={`tel:${CONTACT.phoneTel}`}
-          className="btn-primary chamfer chamfer-sm !rounded-[2px] flex shrink-0 items-center justify-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm"
+          className="chamfer chamfer-sm flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap bg-accent px-4 py-2.5 text-sm font-medium text-[#0a0a0c] transition-colors duration-200 hover:bg-accent-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white"
         >
           <Phone className="h-4 w-4" />
           Zadzwoń

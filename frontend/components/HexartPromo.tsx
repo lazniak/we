@@ -100,7 +100,7 @@ export default function HexartPromo() {
   return (
     <aside className="w-full mx-auto mt-8 animate-fade-in">
       <div
-        className="chamfer chamfer-lg relative aspect-video w-full overflow-hidden border border-white/15 bg-[#0a0a0c]"
+        className="chamfer chamfer-lg chamfer-line relative aspect-video w-full overflow-hidden border border-white/15 bg-[#0a0a0c]"
         onMouseEnter={() => (pausedRef.current = true)}
         onMouseLeave={() => (pausedRef.current = false)}
         onFocusCapture={() => (pausedRef.current = true)}
@@ -120,7 +120,7 @@ export default function HexartPromo() {
         <button
           onClick={swap}
           type="button"
-          className="chamfer chamfer-sm absolute right-2 top-2 z-30 grid h-11 w-11 place-items-center border border-white/15 bg-[#0a0a0c]/60 text-white/80 backdrop-blur-sm transition-colors duration-200 hover:border-accent/40 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
+          className="absolute right-3 top-5 z-30 grid h-11 w-11 place-items-center rounded-[2px] border border-white/15 bg-[#0a0a0c]/60 text-white/80 backdrop-blur-sm transition-colors duration-200 hover:border-accent/40 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
           aria-label="Pokaż inną informację o HEXART"
           title="Pokaż coś innego"
         >

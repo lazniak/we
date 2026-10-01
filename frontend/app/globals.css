@@ -401,7 +401,8 @@ body::before {
 .chamfer {
   --cut-y: 10px;
   --cut-x: calc(var(--cut-y) * 1.732);
-  clip-path: polygon(0 0, calc(100% - var(--cut-x)) 0, 100% var(--cut-y), 100% 100%, 0 100%);
+  border-radius: 0 var(--cut-x) 0 0 / 0 var(--cut-y) 0 0;
+  corner-shape: bevel;
 }
 
 .chamfer-sm {
@@ -410,6 +411,35 @@ body::before {
 
 .chamfer-lg {
   --cut-y: 16px;
+}
+
+/* Keep positioned controls positioned; static frames anchor their own edge. */
+:where(.chamfer-line) {
+  position: relative;
+}
+
+@supports not (corner-shape: bevel) {
+  .chamfer {
+    border-radius: 0;
+    clip-path: polygon(0 0, calc(100% - var(--cut-x)) 0, 100% var(--cut-y), 100% 100%, 0 100%);
+  }
+
+  /* A normal border is clipped off the diagonal. Complete that one segment
+     above the artwork, inheriting the frame's color including hover changes. */
+  .chamfer-line::after {
+    content: '';
+    position: absolute;
+    z-index: 40;
+    top: -1px;
+    right: calc(var(--cut-x) - var(--cut-y) * 2 - 1px);
+    width: calc(var(--cut-y) * 2);
+    height: 0;
+    border-top: 1px solid;
+    border-color: inherit;
+    transform: rotate(30deg);
+    transform-origin: top left;
+    pointer-events: none;
+  }
 }
 
 /* Hexagon, point up: the brand's mask for portraits. */
