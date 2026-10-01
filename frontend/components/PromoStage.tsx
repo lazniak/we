@@ -153,7 +153,7 @@ function Stage() {
                   draggable={false}
                   decoding="async"
                   className="h-full w-full object-cover select-none"
-                  style={{ objectPosition: PROMO_ART[art].focus ?? '64% 50%' }}
+                  style={{ objectPosition: PROMO_ART[art].focus ?? '64% 50%', transform: PROMO_ART[art].zoom ? 'scale(' + PROMO_ART[art].zoom + ')' : undefined }}
                 />
               </div>
             </div>

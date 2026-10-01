@@ -5,7 +5,7 @@ import React from 'react';
  * cropped to fill the banner.
  *
  * Case studies use HEXART's own published pictures (hexart.pl) rather than
- * something invented: the Jetson ONE aircraft, a frame from the Wojna1939.pl
+ * something invented: a frame from the Jetson simulator demonstration, an illustration for Wojna1939.pl
  * prequel. The consultation card shows a real photo of P. Lazniak. Everything
  * else is a generated illustration and says so on screen.
  *
@@ -37,13 +37,14 @@ interface ArtMeta {
   ai: boolean;
   /** Where the subject sits, for crops that cannot show the whole frame. */
   focus?: string;
+  zoom?: number;
 }
 
 export const PROMO_ART: Record<PromoArtKey, ArtMeta> = {
   automation: { ai: true },
   voice: { ai: true },
   rag: { ai: true },
-  jetson: { ai: true, focus: '46% 45%' },
+  jetson: { ai: false, focus: '50% 48%', zoom: 3 },
   wojna1939: { ai: true, focus: '50% 55%' },
   film: { ai: true },
   video: { ai: true },
@@ -93,7 +94,7 @@ export default function PromoArt({ art }: { art: PromoArtKey }) {
       decoding="async"
       draggable={false}
       className="w-full h-full object-cover select-none"
-      style={{ objectPosition: PROMO_ART[art].focus ?? '50% 50%' }}
+      style={{ objectPosition: PROMO_ART[art].focus ?? '50% 50%', transform: PROMO_ART[art].zoom ? 'scale(' + PROMO_ART[art].zoom + ')' : undefined }}
     />
   );
 }
