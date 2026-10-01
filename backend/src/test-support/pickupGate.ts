@@ -3,8 +3,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 const originalFile = Bun.file;
 const gate = process.env.E2E_PICKUP_GATE;
-Bun.file = ((path: Parameters<typeof Bun.file>[0], ...args: unknown[]) => {
-  const file = originalFile(path as string);
+Bun.file = ((path: string | number | Uint8Array | ArrayBuffer | URL, ...args: unknown[]) => {
+  const file = Reflect.apply(originalFile, Bun, [path, ...args]) as ReturnType<typeof Bun.file>;
   if (typeof path !== 'string' || !gate || !existsSync(gate) || !path.includes(readFileSync(gate, 'utf8'))) return file;
   const stream = () => {
     let offset = 0;
