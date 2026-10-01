@@ -76,13 +76,13 @@ export function aiLabel(art: PromoArtKey) {
 /** Rendition per placement: the phone banner and the full-screen desktop stage. */
 export type PromoFilmSize = '720' | '1080';
 
-/** The still: a film's first frame as its poster, otherwise the WebP artwork. */
+/**
+ * The still: a film's first frame as its poster. An art without a film would
+ * need its own WebP at /promo/<art>.webp; every art has a film today.
+ */
 export function promoArtSrc(art: PromoArtKey) {
   const film = PROMO_VIDEOS[art];
-  if (film) return `/promo/video/${art}.webp?v=${film}`;
-  if (art === 'paul') return '/promo/paul.webp?v=20261001-gold';
-  const regenerated: PromoArtKey[] = ['automation', 'voice', 'rag', 'wojna1939', 'video', 'xr', 'facemapping', 'live', 'history', 'ecommerce', 'branding', 'genai', 'contact'];
-  return `/promo/${art}.webp${regenerated.includes(art) ? '?v=20261001-fhd' : ''}`;
+  return film ? `/promo/video/${art}.webp?v=${film}` : `/promo/${art}.webp`;
 }
 
 export function hasPromoFilm(art: PromoArtKey) {
