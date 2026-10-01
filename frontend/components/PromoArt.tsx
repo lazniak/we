@@ -4,10 +4,9 @@ import React from 'react';
  * Banner artwork for the studio promos, served as WebP from /public/promo and
  * cropped to fill the banner.
  *
- * Case studies use HEXART's own published pictures (hexart.pl) rather than
- * something invented: a frame from the Jetson simulator demonstration, an illustration for Wojna1939.pl
- * prequel. The consultation card shows a real photo of P. Lazniak. Everything
- * else is a generated illustration and says so on screen.
+ * Artwork provenance is documented in assets/promo-sources/README.md.
+ * Jetson uses the owner-supplied AI-assisted illustration; the consultation
+ * card shows a real photo of P. Lazniak. AI-assisted artwork is labelled.
  *
  * Decorative only: the promo copy next to it carries the meaning, so the image
  * is aria-hidden and has an empty alt.
@@ -44,7 +43,7 @@ export const PROMO_ART: Record<PromoArtKey, ArtMeta> = {
   automation: { ai: true },
   voice: { ai: true },
   rag: { ai: true },
-  jetson: { ai: false, focus: '50% 48%', zoom: 4 },
+  jetson: { ai: true, focus: '64% 50%' },
   wojna1939: { ai: true, focus: '50% 55%' },
   film: { ai: true },
   video: { ai: true },
