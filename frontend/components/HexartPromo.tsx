@@ -164,7 +164,7 @@ function PosterFace({
       <div className="absolute left-3 right-14 top-3 flex items-center gap-2 sm:left-5 sm:top-5">
         <span className="h-px w-4 shrink-0 bg-accent/70" />
         <span className="font-label text-[10px] font-medium uppercase tracking-[0.12em] text-accent-light sm:text-xs">
-          HEXART Studio · {promo.kicker}
+          <span className="hidden sm:inline">HEXART Studio · </span>{promo.kicker}
         </span>
       </div>
       {PROMO_ART[promo.art].ai && (
