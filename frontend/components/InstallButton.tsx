@@ -27,9 +27,9 @@ export default function InstallButton() {
         onClick={onInstall}
         disabled={busy}
         title="Zainstaluj HEXART Transfer"
-        className="inline-flex items-center gap-1 text-[11px] text-white/50 transition-colors hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:opacity-50"
+        className="chamfer chamfer-sm inline-flex min-h-[44px] items-center gap-2 border border-accent/35 bg-accent/[0.06] px-3 text-[13px] font-medium text-accent transition-colors hover:border-accent/65 hover:bg-accent/10 hover:text-accent-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent disabled:opacity-50"
       >
-        <Download className="h-3 w-3" aria-hidden="true" />
+        <Download className="h-[18px] w-[18px]" aria-hidden="true" />
         Install
       </button>
       {showHelp && <InstallHelp instructions={installInstructions(platform, userAgent)} onClose={() => setShowHelp(false)} />}
