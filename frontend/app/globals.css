@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+.install-dialog::backdrop { background: rgba(5, 5, 7, 0.8); backdrop-filter: blur(6px); }
+.install-dialog { max-height: calc(100dvh - 2rem); overflow-y: auto; }
+
 /* Barlow Condensed from the HEXART brand pack (SIL OFL 1.1), served locally. */
 @font-face {
   font-family: 'Barlow Condensed';
@@ -47,13 +50,13 @@
  */
 :root {
   --bg-primary: #0a0a0c;
-  --bg-darker: #050508;
+  --bg-darker: #050507;
   --bg-card: rgba(20, 20, 22, 0.7);
 
-  --accent: #d4af37;
-  --accent-light: #e8c96a;
-  --accent-dim: rgba(212, 175, 55, 0.2);
-  --accent-glow: rgba(212, 175, 55, 0.12);
+  --accent: #d1ae53;
+  --accent-light: #ebd065;
+  --accent-dim: rgba(209, 174, 83, 0.2);
+  --accent-glow: rgba(209, 174, 83, 0.12);
 
   --text-primary: #ffffff;
   --text-secondary: #d1d5db;
@@ -112,7 +115,7 @@ body::before {
   inset: 0;
   background:
     radial-gradient(ellipse 70% 45% at 50% -15%, var(--accent-glow), transparent),
-    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(212, 175, 55, 0.05), transparent);
+    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(209, 174, 83, 0.05), transparent);
   pointer-events: none;
   z-index: -1;
 }
@@ -127,12 +130,12 @@ body::before {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(212, 175, 55, 0.18);
+  background: rgba(209, 174, 83, 0.18);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 175, 55, 0.35);
+  background: rgba(209, 174, 83, 0.35);
 }
 
 /* ------------------------------------------------------------ surfaces */
@@ -157,10 +160,10 @@ body::before {
 }
 
 .glass-accent {
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.09), rgba(212, 175, 55, 0.03));
+  background: linear-gradient(135deg, rgba(209, 174, 83, 0.09), rgba(209, 174, 83, 0.03));
   @apply backdrop-blur backdrop-saturate-100;
-  border: 1px solid rgba(212, 175, 55, 0.22);
-  box-shadow: 0 8px 32px rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(209, 174, 83, 0.22);
+  box-shadow: 0 8px 32px rgba(209, 174, 83, 0.1);
 }
 
 .gradient-text {
@@ -194,10 +197,10 @@ body::before {
 @keyframes pulse-glow {
   0%,
   100% {
-    box-shadow: 0 0 20px rgba(212, 175, 55, 0.16);
+    box-shadow: 0 0 20px rgba(209, 174, 83, 0.16);
   }
   50% {
-    box-shadow: 0 0 40px rgba(212, 175, 55, 0.32);
+    box-shadow: 0 0 40px rgba(209, 174, 83, 0.32);
   }
 }
 
@@ -226,7 +229,7 @@ body::before {
   left: 0;
   width: 45%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.14), transparent);
+  background: linear-gradient(90deg, transparent, rgba(209, 174, 83, 0.14), transparent);
   animation: sheen 6s var(--ease) infinite;
   pointer-events: none;
 }
@@ -487,7 +490,7 @@ body::before {
   inset: 0;
   border-radius: 24px;
   padding: 1px;
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.3), rgba(255, 255, 255, 0.05));
+  background: linear-gradient(135deg, rgba(209, 174, 83, 0.3), rgba(255, 255, 255, 0.05));
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -500,14 +503,14 @@ body::before {
 
 .drop-zone:hover::before,
 .drop-zone.active::before {
-  background: linear-gradient(135deg, var(--accent), rgba(212, 175, 55, 0.35));
+  background: linear-gradient(135deg, var(--accent), rgba(209, 174, 83, 0.35));
   opacity: 1;
-  box-shadow: 0 0 40px rgba(212, 175, 55, 0.22);
+  box-shadow: 0 0 40px rgba(209, 174, 83, 0.22);
 }
 
 .drop-zone:hover,
 .drop-zone.active {
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.06), rgba(212, 175, 55, 0.02));
+  background: linear-gradient(135deg, rgba(209, 174, 83, 0.06), rgba(209, 174, 83, 0.02));
 }
 
 .drop-zone.active {
@@ -526,11 +529,11 @@ body::before {
   transition: all 0.3s var(--ease);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 4px 18px rgba(212, 175, 55, 0.22);
+  box-shadow: 0 4px 18px rgba(209, 174, 83, 0.22);
 }
 
 .btn-primary:hover:not(:disabled) {
-  box-shadow: 0 8px 30px rgba(212, 175, 55, 0.34);
+  box-shadow: 0 8px 30px rgba(209, 174, 83, 0.34);
   transform: translateY(-1px);
 }
 
@@ -551,8 +554,8 @@ body::before {
 }
 
 .btn-outline:hover {
-  background: rgba(212, 175, 55, 0.1);
-  box-shadow: 0 0 24px rgba(212, 175, 55, 0.18);
+  background: rgba(209, 174, 83, 0.1);
+  box-shadow: 0 0 24px rgba(209, 174, 83, 0.18);
 }
 
 .input-glass {
@@ -563,9 +566,9 @@ body::before {
 }
 
 .input-glass:focus {
-  border-color: rgba(212, 175, 55, 0.5);
+  border-color: rgba(209, 174, 83, 0.5);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+  box-shadow: 0 0 0 3px rgba(209, 174, 83, 0.1);
 }
 
 /* ---------------------------------------------------------- scrollbars */
@@ -589,10 +592,10 @@ body::before {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(212, 175, 55, 0.22);
+  background: rgba(209, 174, 83, 0.22);
   border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 175, 55, 0.4);
+  background: rgba(209, 174, 83, 0.4);
 }

@@ -44,7 +44,7 @@ export const PROMO_ART: Record<PromoArtKey, ArtMeta> = {
   voice: { ai: true },
   rag: { ai: true },
   jetson: { ai: true, focus: '64% 50%' },
-  wojna1939: { ai: true, focus: '50% 55%' },
+  wojna1939: { ai: true, focus: '68% 50%' },
   film: { ai: true },
   video: { ai: true },
   xr: { ai: true },
@@ -62,7 +62,8 @@ export const PROMO_ART: Record<PromoArtKey, ArtMeta> = {
 export const AI_IMAGE_LABEL = 'Obraz stworzony z pomocą AI.';
 
 export function promoArtSrc(art: PromoArtKey) {
-  return `/promo/${art}.webp`;
+  const regenerated: PromoArtKey[] = ['automation', 'voice', 'rag', 'wojna1939', 'video', 'xr', 'facemapping', 'live', 'history', 'ecommerce', 'branding', 'genai', 'contact'];
+  return `/promo/${art}.webp${regenerated.includes(art) ? '?v=20261001-fhd' : ''}`;
 }
 
 /**

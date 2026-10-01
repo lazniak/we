@@ -172,8 +172,16 @@ function Stage() {
         <div className="film-grain" />
       </div>
 
-      {/* Everything to the right of the panel */}
-      <div className="absolute inset-y-0 right-0 left-[var(--panel-w)] flex flex-col justify-between px-10 py-10 xl:px-16 xl:py-12">
+      <a
+        href={promo.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Otwórz reklamę: ${promo.title}`}
+        className="absolute inset-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-accent"
+      />
+
+      {/* Text passes pointer events to the full-area link; controls remain independent. */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 left-[var(--panel-w)] flex flex-col justify-between px-10 py-10 xl:px-16 xl:py-12">
         <CornerMarks />
 
         <div className="relative flex justify-end">
@@ -228,7 +236,7 @@ function Stage() {
               href={promo.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="stage-rise group/cta mt-8 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-accent-light"
+              className="pointer-events-auto stage-rise group/cta mt-8 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-accent-light"
               style={{ animationDelay: `${bodyDelay + 160}ms` }}
             >
               <span className="relative">
@@ -255,7 +263,7 @@ function Stage() {
               />
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="pointer-events-auto flex items-center gap-1">
               <button
                 onClick={() => go(-1)}
                 className="p-2 text-white/40 transition-colors hover:text-accent"
@@ -295,7 +303,7 @@ function ContactCard() {
   const [photoOk, setPhotoOk] = useState(true);
 
   return (
-    <div className="chamfer chamfer-lg w-[20rem] border border-white/10 bg-[#0a0a0c]/55 p-5 backdrop-blur-md stage-rise">
+    <div className="pointer-events-auto chamfer chamfer-lg w-[20rem] border border-white/10 bg-[#0a0a0c]/55 p-5 backdrop-blur-md stage-rise">
       <div className="flex items-center gap-4">
         <div className="hex-mask relative h-16 w-14 shrink-0 bg-gradient-to-br from-accent/30 to-accent/5">
           {photoOk ? (

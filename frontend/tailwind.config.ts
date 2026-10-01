@@ -23,13 +23,13 @@ const config: Config = {
       colors: {
         bg: {
           primary: '#0a0a0c',
-          darker: '#050508',
+          darker: '#050507',
           card: 'rgba(20, 20, 22, 0.7)',
         },
         accent: {
-          DEFAULT: '#d4af37',
-          light: '#e8c96a',
-          dark: '#a8811f',
+          DEFAULT: '#d1ae53',
+          light: '#ebd065',
+          dark: '#7a5f1c',
         },
         border: {
           DEFAULT: 'rgba(255, 255, 255, 0.08)',
@@ -46,8 +46,8 @@ const config: Config = {
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         'pulse-glow': {
-          '0%, 100%': { boxShadow: '0 0 20px rgba(212, 175, 55, 0.16)' },
-          '50%': { boxShadow: '0 0 40px rgba(212, 175, 55, 0.32)' },
+          '0%, 100%': { boxShadow: '0 0 20px rgba(209, 174, 83, 0.16)' },
+          '50%': { boxShadow: '0 0 40px rgba(209, 174, 83, 0.32)' },
         },
       },
       backdropBlur: {

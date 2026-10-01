@@ -192,3 +192,13 @@ sudo ./deploy.sh
 ## License
 
 MIT
+
+### Instalacja PWA
+
+HEXART Transfer można zainstalować z przycisku Install w stopce. Chrome i Edge udostępniają systemowe okno instalacji, gdy przeglądarka zgłosi gotowość. Pozostałe przeglądarki otrzymują instrukcję dopasowaną do systemu. Przycisk znika w oknie zainstalowanej aplikacji.
+
+Na iPhonie i iPadzie: Safari, Udostępnij, Dodaj do ekranu początkowego, Otwórz jako aplikację (jeśli dostępne), Dodaj. Na Macu w Safari: Plik, Dodaj do Docka (macOS Sonoma 14 lub nowszy). Na Androidzie: menu Chrome, Zainstaluj aplikację lub Dodaj do ekranu początkowego.
+
+Manifest: /manifest.webmanifest. Service worker: /sw.js. Instalacja wymaga HTTPS lub localhost. Cache obejmuje publiczny interfejs, fonty, ikony i tła. Transfery, API, miniatury właściciela, hasła i pobierane pliki nie są zapisywane w Cache Storage. Odbiór i wysyłanie wymagają internetu. Przy braku połączenia aplikacja pokazuje zapisany interfejs lub stronę offline. Aktualizacja nie przeładowuje strony podczas uploadu.
+
+Weryfikacja logiki: cd frontend i bun test tests/pwa.test.mjs. Instrukcje Apple: https://support.apple.com/pl-pl/guide/iphone/iph42ab2f3a7/ios oraz https://support.apple.com/pl-pl/104996. Mechanizm instalacji: https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/How_to/Trigger_install_prompt.

@@ -1,10 +1,14 @@
 import type { Metadata, Viewport } from 'next';
-import { Outfit } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import BackgroundVideo from '@/components/BackgroundVideo';
+import PwaProvider from '@/components/PwaProvider';
 
-const outfit = Outfit({
-  subsets: ['latin', 'latin-ext'],
+const outfit = localFont({
+  src: [
+    { path: '../public/fonts/outfit-latin-wght-normal.woff2', weight: '100 900', style: 'normal' },
+    { path: '../public/fonts/outfit-latin-ext-wght-normal.woff2', weight: '100 900', style: 'normal' },
+  ],
   display: 'swap',
   variable: '--font-outfit',
 });
@@ -18,7 +22,13 @@ export const metadata: Metadata = {
   title: 'hexart.io',
   description:
     'Wyślij do 5 GB bez zakładania konta. Katalogi zachowują strukturę, link wygasa po 3–7 dniach, a pliki kasują się same. Od HEXART Studio: film, XR i systemy AI.',
-  applicationName: 'hexart.io',
+  applicationName: 'HEXART Transfer',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: [{ url: '/icons/favicon.svg', type: 'image/svg+xml' }, { url: '/icons/favicon.ico' }],
+    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
+  appleWebApp: { capable: true, title: 'HEXART Transfer', statusBarStyle: 'black-translucent' },
   openGraph: {
     title: 'hexart.io. Szybki transfer plików od HEXART Studio',
     description:
@@ -48,7 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pl" className={outfit.variable}>
       <body className="min-h-screen antialiased">
         <BackgroundVideo />
-        <div className="relative z-10 min-h-screen flex flex-col">{children}</div>
+        <PwaProvider><div className="relative z-10 min-h-screen flex flex-col">{children}</div></PwaProvider>
       </body>
     </html>
   );

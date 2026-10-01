@@ -1,0 +1,593 @@
+{
+  "date": "2026-10-01",
+  "cost_usd": 2.104549,
+  "images": [
+    {
+      "art": "automation",
+      "generation_id": "g_mupagyb1ee226e",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "generated_at": "2026-10-01T08:46:33.471Z",
+      "cost_usd": 0.16103,
+      "prompt": "Create a completely new photographic advertising image for HEXART, using the attached references only where requested. This is an illustrative advertising image. Do not imply that invented locations, equipment or people are real HEXART facilities or client projects.\n\nLandscape 16:9. Compose for a website with a translucent upload panel occupying the left 35–40% of the frame. Keep this left region visually quiet, with dark natural materials and soft reflected light, not a flat black void. Reserve a quiet dark top-right region for a contact card. Reserve the lower right half for white headline and body text. Place the main subject in the middle-right, around 70% of frame width and 40% of frame height. Keep the essential subject readable in a square crop centered on the right-hand scene. Do not draw any website panels, borders or overlays into the image.\n\nCinematic low-key photography, warm golden side light, graphite and onyx shadows with visible detail, restrained natural colors, subtle gold reflections inspired by #D1AE53, nuanced material textures, believable optics, fine film grain and generous negative space. Clear original detail at the requested output dimensions. Gold is an accent, not a color cast covering everything.\n\nAvoid text, logos, watermarks, fake dashboards, neon, glowing circuit lines, holographic interfaces, decorative hexagons, generic humanoid robots, stock-photo smiles, plastic skin, excessive bokeh, oversaturated HDR, distorted anatomy and implausible equipment. No large bright light sources behind future text or the upload panel.\n\nScene: a quiet, thoughtfully arranged workstation for business process automation. A plausible desktop computer, a small orderly stack of documents, one notebook and understated server hardware in the background. The monitor is seen obliquely and contains only abstract, non-readable shapes suggesting an orderly workflow. Show a tangible working environment and precise organization. No floating workflow diagrams, glowing connections or claims of a specific software interface. Main subject is the desk on the middle-right.",
+      "params": {
+        "aspect_ratio": "16:9",
+        "size": "1920x1088",
+        "quality": "max",
+        "background": "opaque",
+        "n": 1,
+        "provider": null,
+        "provider_options": null,
+        "input_files": [],
+        "frame_first": null,
+        "frame_last": null
+      },
+      "source": "./automation.png",
+      "source_sha256": "fae03e9609e98aab365017d8c99062d5b958b405151ec167fa9c1bc0774493c6",
+      "native_dimensions": [
+        1920,
+        1088
+      ],
+      "delivery": "../../../public/promo/automation.webp",
+      "delivery_sha256": "07effaad343a572be2ca6a1b38a0edc91034fda182699cbb0511ad18ee8a4ddf",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "conversion": {
+        "crop": {
+          "left": 0,
+          "top": 4,
+          "width": 1920,
+          "height": 1080
+        },
+        "webp_quality": 93,
+        "effort": 6,
+        "upscaled": false
+      },
+      "reference": null,
+      "label": "Obraz stworzony z pomocą AI."
+    },
+    {
+      "art": "voice",
+      "generation_id": "g_mupansqldf5911",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "generated_at": "2026-10-01T08:51:55.806Z",
+      "cost_usd": 0.16097,
+      "prompt": "Create a completely new photographic advertising image for HEXART, using the attached references only where requested. This is an illustrative advertising image. Do not imply that invented locations, equipment or people are real HEXART facilities or client projects.\n\nLandscape 16:9. Compose for a website with a translucent upload panel occupying the left 35–40% of the frame. Keep this left region visually quiet, with dark natural materials and soft reflected light, not a flat black void. Reserve a quiet dark top-right region for a contact card. Reserve the lower right half for white headline and body text. Place the main subject in the middle-right, around 70% of frame width and 40% of frame height. Keep the essential subject readable in a square crop centered on the right-hand scene. Do not draw any website panels, borders or overlays into the image.\n\nCinematic low-key photography, warm golden side light, graphite and onyx shadows with visible detail, restrained natural colors, subtle gold reflections inspired by #D1AE53, nuanced material textures, believable optics, fine film grain and generous negative space. Clear original detail at the requested output dimensions. Gold is an accent, not a color cast covering everything.\n\nAvoid text, logos, watermarks, fake dashboards, neon, glowing circuit lines, holographic interfaces, decorative hexagons, generic humanoid robots, stock-photo smiles, plastic skin, excessive bokeh, oversaturated HDR, distorted anatomy and implausible equipment. No large bright light sources behind future text or the upload panel.\n\nScene: an elegant real-world workspace with a well-made telephone headset resting beside a smartphone and an open appointment notebook. A small warm practical lamp illuminates the objects from the side. Emphasize the physical act of scheduling a conversation through these tangible objects. No robot receptionist, invented calendar text, glowing sound waves or holograms. Keep the headset as the clear middle-right focal point.",
+      "params": {
+        "aspect_ratio": "16:9",
+        "size": "1920x1088",
+        "quality": "max",
+        "background": "opaque",
+        "n": 1,
+        "provider": null,
+        "provider_options": null,
+        "input_files": [],
+        "frame_first": null,
+        "frame_last": null
+      },
+      "source": "./voice.png",
+      "source_sha256": "63d06706694033f899e81eec4338bd5c1da529488525d96831a44afc9f784ce0",
+      "native_dimensions": [
+        1920,
+        1088
+      ],
+      "delivery": "../../../public/promo/voice.webp",
+      "delivery_sha256": "ce793315f2381280f17846929df8a295482a60818807eca2c09fc98308cda648",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "conversion": {
+        "crop": {
+          "left": 0,
+          "top": 4,
+          "width": 1920,
+          "height": 1080
+        },
+        "webp_quality": 93,
+        "effort": 6,
+        "upscaled": false
+      },
+      "reference": null,
+      "label": "Obraz stworzony z pomocą AI."
+    },
+    {
+      "art": "rag",
+      "generation_id": "g_mupaplva0614ed",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "generated_at": "2026-10-01T08:53:24.273Z",
+      "cost_usd": 0.16099,
+      "prompt": "Create a completely new photographic advertising image for HEXART, using the attached references only where requested. This is an illustrative advertising image. Do not imply that invented locations, equipment or people are real HEXART facilities or client projects.\n\nLandscape 16:9. Compose for a website with a translucent upload panel occupying the left 35–40% of the frame. Keep this left region visually quiet, with dark natural materials and soft reflected light, not a flat black void. Reserve a quiet dark top-right region for a contact card. Reserve the lower right half for white headline and body text. Place the main subject in the middle-right, around 70% of frame width and 40% of frame height. Keep the essential subject readable in a square crop centered on the right-hand scene. Do not draw any website panels, borders or overlays into the image.\n\nCinematic low-key photography, warm golden side light, graphite and onyx shadows with visible detail, restrained natural colors, subtle gold reflections inspired by #D1AE53, nuanced material textures, believable optics, fine film grain and generous negative space. Clear original detail at the requested output dimensions. Gold is an accent, not a color cast covering everything.\n\nAvoid text, logos, watermarks, fake dashboards, neon, glowing circuit lines, holographic interfaces, decorative hexagons, generic humanoid robots, stock-photo smiles, plastic skin, excessive bokeh, oversaturated HDR, distorted anatomy and implausible equipment. No large bright light sources behind future text or the upload panel.\n\nScene: a precise document research workspace with a few open source documents, a notebook with unobtrusive page markers and a laptop in the background. Pages show credible paper texture and indistinct layout, without readable invented text. One document is gently highlighted by warm side light. Suggest finding and checking an original source, rather than omniscient AI or magical access to all information. Avoid floating books and data clouds.",
+      "params": {
+        "aspect_ratio": "16:9",
+        "size": "1920x1088",
+        "quality": "max",
+        "background": "opaque",
+        "n": 1,
+        "provider": null,
+        "provider_options": null,
+        "input_files": [],
+        "frame_first": null,
+        "frame_last": null
+      },
+      "source": "./rag.png",
+      "source_sha256": "ddcfe267db3a776670ac287169eccf702cfb62f64d71757118e9edd5b0daa4ce",
+      "native_dimensions": [
+        1920,
+        1088
+      ],
+      "delivery": "../../../public/promo/rag.webp",
+      "delivery_sha256": "cd1cfe1688036ca5c23560b17d8dbbff2d623917d1c14eb632a324df3aecdcc5",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "conversion": {
+        "crop": {
+          "left": 0,
+          "top": 4,
+          "width": 1920,
+          "height": 1080
+        },
+        "webp_quality": 93,
+        "effort": 6,
+        "upscaled": false
+      },
+      "reference": null,
+      "label": "Obraz stworzony z pomocą AI."
+    },
+    {
+      "art": "wojna1939",
+      "generation_id": "g_muparhcn4b928e",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "generated_at": "2026-10-01T08:54:51.311Z",
+      "cost_usd": 0.172159,
+      "prompt": "Render a completely new detailed photographic illustration of the laboratory scene in the supplied Wojna1939.pl prequel reference. Preserve its arched windows, shelves, glass instruments and visible central device construction. Do not invent historical events or characters. Place the main subject middle-right; left 38% quiet dark natural background for a translucent upload panel, top-right calm for a contact card, lower-right dark for white text. No UI, text, logos or borders. HEXART cinematic grading: neutral graphite/onyx shadows with visible texture and a 2–3% black floor, subdued midtones, highlights below clipping, natural saturation around 80–90%, restrained warm golden side light and subtle #D1AE53 reflections. Replace the reference's harsh orange-red glow and green/cyan shadows with controlled tungsten light and neutral shadows. No overall sepia or gold wash. Real materials, believable optics, fine grain, sharp original detail. AI-assisted advertising illustration, not archival photography. Wide 16:9.",
+      "params": {
+        "aspect_ratio": "16:9",
+        "size": "1920x1088",
+        "quality": "max",
+        "background": "opaque",
+        "n": 1,
+        "provider": null,
+        "provider_options": null,
+        "input_files": [
+          "A:\\code\\Transfer\\wojna1939-reference.webp"
+        ],
+        "frame_first": null,
+        "frame_last": null
+      },
+      "source": "./wojna1939.png",
+      "source_sha256": "67cfff6f14e8639e0d873d5d07785ddafd183f10927db559fba71d5b758aef71",
+      "native_dimensions": [
+        1920,
+        1088
+      ],
+      "delivery": "../../../public/promo/wojna1939.webp",
+      "delivery_sha256": "28b40c6398beaec90ba89ab75f37de4b77070e65d79d3f8585a713f034068ba9",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "conversion": {
+        "crop": {
+          "left": 0,
+          "top": 4,
+          "width": 1920,
+          "height": 1080
+        },
+        "webp_quality": 93,
+        "effort": 6,
+        "upscaled": false
+      },
+      "reference": "Existing HEXART Wojna1939.pl laboratory illustration, supplied as reference",
+      "label": "Obraz stworzony z pomocą AI."
+    },
+    {
+      "art": "video",
+      "generation_id": "g_mupb2m1q3285d5",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "generated_at": "2026-10-01T09:03:25.059Z",
+      "cost_usd": 0.16103,
+      "prompt": "Create a completely new photographic advertising image for HEXART, using the attached references only where requested. This is an illustrative advertising image. Do not imply that invented locations, equipment or people are real HEXART facilities or client projects.\n\nLandscape 16:9. Compose for a website with a translucent upload panel occupying the left 35–40% of the frame. Keep this left region visually quiet, with dark natural materials and soft reflected light, not a flat black void. Reserve a quiet dark top-right region for a contact card. Reserve the lower right half for white headline and body text. Place the main subject in the middle-right, around 70% of frame width and 40% of frame height. Keep the essential subject readable in a square crop centered on the right-hand scene. Do not draw any website panels, borders or overlays into the image.\n\nCinematic low-key photography, warm golden side light, graphite and onyx shadows with visible detail, restrained natural colors, subtle gold reflections inspired by #D1AE53, nuanced material textures, believable optics, fine film grain and generous negative space. Clear original detail at the requested output dimensions. Gold is an accent, not a color cast covering everything.\n\nAvoid text, logos, watermarks, fake dashboards, neon, glowing circuit lines, holographic interfaces, decorative hexagons, generic humanoid robots, stock-photo smiles, plastic skin, excessive bokeh, oversaturated HDR, distorted anatomy and implausible equipment. No large bright light sources behind future text or the upload panel.\n\nScene: a convincing film editing and color-grading workstation in a dark room. A physical control surface with believable knobs and buttons, two modest monitors with non-readable film thumbnails and timeline-like structures, and one reference image on a screen. Emphasize craft, repeatability and careful production. No fake software labels, neon screens or futuristic floating controls. The console forms the focal point on the middle-right, with the lower part of the composition subdued.",
+      "params": {
+        "aspect_ratio": "16:9",
+        "size": "1920x1088",
+        "quality": "max",
+        "background": "opaque",
+        "n": 1,
+        "provider": null,
+        "provider_options": null,
+        "input_files": [],
+        "frame_first": null,
+        "frame_last": null
+      },
+      "source": "./video.png",
+      "source_sha256": "95a476fba2d977d868b1f3b273f8e884499c381168a96be026d4b9d8e38bc18b",
+      "native_dimensions": [
+        1920,
+        1088
+      ],
+      "delivery": "../../../public/promo/video.webp",
+      "delivery_sha256": "abce0dc593b26b2f193ac2789342221292361d0684633546cd4572fa44d1a277",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "conversion": {
+        "crop": {
+          "left": 0,
+          "top": 4,
+          "width": 1920,
+          "height": 1080
+        },
+        "webp_quality": 93,
+        "effort": 6,
+        "upscaled": false
+      },
+      "reference": null,
+      "label": "Obraz stworzony z pomocą AI."
+    },
+    {
+      "art": "xr",
+      "generation_id": "g_mupb4dhdeec4be",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "generated_at": "2026-10-01T09:04:49.853Z",
+      "cost_usd": 0.161015,
+      "prompt": "Create a completely new photographic advertising image for HEXART, using the attached references only where requested. This is an illustrative advertising image. Do not imply that invented locations, equipment or people are real HEXART facilities or client projects.\n\nLandscape 16:9. Compose for a website with a translucent upload panel occupying the left 35–40% of the frame. Keep this left region visually quiet, with dark natural materials and soft reflected light, not a flat black void. Reserve a quiet dark top-right region for a contact card. Reserve the lower right half for white headline and body text. Place the main subject in the middle-right, around 70% of frame width and 40% of frame height. Keep the essential subject readable in a square crop centered on the right-hand scene. Do not draw any website panels, borders or overlays into the image.\n\nCinematic low-key photography, warm golden side light, graphite and onyx shadows with visible detail, restrained natural colors, subtle gold reflections inspired by #D1AE53, nuanced material textures, believable optics, fine film grain and generous negative space. Clear original detail at the requested output dimensions. Gold is an accent, not a color cast covering everything.\n\nAvoid text, logos, watermarks, fake dashboards, neon, glowing circuit lines, holographic interfaces, decorative hexagons, generic humanoid robots, stock-photo smiles, plastic skin, excessive bokeh, oversaturated HDR, distorted anatomy and implausible equipment. No large bright light sources behind future text or the upload panel.\n\nScene: a generic, unbranded product prototype on a simple physical plinth, with a plausible VR headset and controllers nearby in a dark presentation room. On a real screen in the depth, show a coherent rendered view of that exact same generic prototype. Keep the physical and digital geometry consistent. No invented client product, floating hologram or random science-fiction vehicle. Use warm reflected light on the prototype and a calm middle-right composition.",
+      "params": {
+        "aspect_ratio": "16:9",
+        "size": "1920x1088",
+        "quality": "max",
+        "background": "opaque",
+        "n": 1,
+        "provider": null,
+        "provider_options": null,
+        "input_files": [],
+        "frame_first": null,
+        "frame_last": null
+      },
+      "source": "./xr.png",
+      "source_sha256": "0c97fd07fbcecee7ac1a672c286bebf06cc64abb6ff2c425e7a1bf82b686bfc6",
+      "native_dimensions": [
+        1920,
+        1088
+      ],
+      "delivery": "../../../public/promo/xr.webp",
+      "delivery_sha256": "c33199ce82cf8ad1caf5f34087bd5d6c3ea73ab328199f5939afad94d06f59a2",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "conversion": {
+        "crop": {
+          "left": 0,
+          "top": 4,
+          "width": 1920,
+          "height": 1080
+        },
+        "webp_quality": 93,
+        "effort": 6,
+        "upscaled": false
+      },
+      "reference": null,
+      "label": "Obraz stworzony z pomocą AI."
+    },
+    {
+      "art": "facemapping",
+      "generation_id": "g_mupb64k0e2a397",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "generated_at": "2026-10-01T09:06:04.041Z",
+      "cost_usd": 0.161155,
+      "prompt": "Create a completely new photographic advertising image for HEXART, using the attached references only where requested. This is an illustrative advertising image. Do not imply that invented locations, equipment or people are real HEXART facilities or client projects.\n\nLandscape 16:9. Compose for a website with a translucent upload panel occupying the left 35–40% of the frame. Keep this left region visually quiet, with dark natural materials and soft reflected light, not a flat black void. Reserve a quiet dark top-right region for a contact card. Reserve the lower right half for white headline and body text. Place the main subject in the middle-right, around 70% of frame width and 40% of frame height. Keep the essential subject readable in a square crop centered on the right-hand scene. Do not draw any website panels, borders or overlays into the image.\n\nCinematic low-key photography, warm golden side light, graphite and onyx shadows with visible detail, restrained natural colors, subtle gold reflections inspired by #D1AE53, nuanced material textures, believable optics, fine film grain and generous negative space. Clear original detail at the requested output dimensions. Gold is an accent, not a color cast covering everything.\n\nAvoid text, logos, watermarks, fake dashboards, neon, glowing circuit lines, holographic interfaces, decorative hexagons, generic humanoid robots, stock-photo smiles, plastic skin, excessive bokeh, oversaturated HDR, distorted anatomy and implausible equipment. No large bright light sources behind future text or the upload panel.\n\nCreate a clearly generic, new photographic illustration of live face projection mapping. An anonymous adult performer in three-quarter view on the middle-right, with projected warm geometric light accurately conforming to natural facial planes, real skin, eyelids and contours. Preserve believable anatomy, visible projection falloff and a dark plausible stage background. Use restrained warm gold projection with neutral shadows. Not a recreation of a named performer or the actual 2016 performance; no celebrity likeness, virtual floating overlays, holograms or unreadable stage signs. Leave the full head safe and generous space above it.",
+      "params": {
+        "aspect_ratio": "16:9",
+        "size": "1920x1088",
+        "quality": "max",
+        "background": "opaque",
+        "n": 1,
+        "provider": null,
+        "provider_options": null,
+        "input_files": [],
+        "frame_first": null,
+        "frame_last": null
+      },
+      "source": "./facemapping.png",
+      "source_sha256": "5c6e602fb07dd5324c01c9de3f6c04ed4b9ad764124f4d8c9c8fb0a1ac825a93",
+      "native_dimensions": [
+        1920,
+        1088
+      ],
+      "delivery": "../../../public/promo/facemapping.webp",
+      "delivery_sha256": "9062efd1cad45b5fac774f5e710882801ba7c476bbc7b3f12e1c284e68b1132b",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "conversion": {
+        "crop": {
+          "left": 0,
+          "top": 4,
+          "width": 1920,
+          "height": 1080
+        },
+        "webp_quality": 93,
+        "effort": 6,
+        "upscaled": false
+      },
+      "reference": null,
+      "label": "Obraz stworzony z pomocą AI."
+    },
+    {
+      "art": "live",
+      "generation_id": "g_mupbb9c0fa8ed4",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "generated_at": "2026-10-01T09:10:07.122Z",
+      "cost_usd": 0.16105,
+      "prompt": "Create a completely new photographic advertising image for HEXART, using the attached references only where requested. This is an illustrative advertising image. Do not imply that invented locations, equipment or people are real HEXART facilities or client projects.\n\nLandscape 16:9. Compose for a website with a translucent upload panel occupying the left 35–40% of the frame. Keep this left region visually quiet, with dark natural materials and soft reflected light, not a flat black void. Reserve a quiet dark top-right region for a contact card. Reserve the lower right half for white headline and body text. Place the main subject in the middle-right, around 70% of frame width and 40% of frame height. Keep the essential subject readable in a square crop centered on the right-hand scene. Do not draw any website panels, borders or overlays into the image.\n\nCinematic low-key photography, warm golden side light, graphite and onyx shadows with visible detail, restrained natural colors, subtle gold reflections inspired by #D1AE53, nuanced material textures, believable optics, fine film grain and generous negative space. Clear original detail at the requested output dimensions. Gold is an accent, not a color cast covering everything.\n\nAvoid text, logos, watermarks, fake dashboards, neon, glowing circuit lines, holographic interfaces, decorative hexagons, generic humanoid robots, stock-photo smiles, plastic skin, excessive bokeh, oversaturated HDR, distorted anatomy and implausible equipment. No large bright light sources behind future text or the upload panel.\n\nScene: an understated archival research table, one archival storage box, several organized folders and a plausible document scanner. An open source document is the middle-right focal point. Physical paper, linen covers, tabs and restrained materials, with no readable invented names or records. Suggest traceable original sources and careful research. Distinguish this from a generic office desk through the archival box and scanner. No live-streaming setup or microphones, since this advertisement concerns archives and source documents.",
+      "params": {
+        "aspect_ratio": "16:9",
+        "size": "1920x1088",
+        "quality": "max",
+        "background": "opaque",
+        "n": 1,
+        "provider": null,
+        "provider_options": null,
+        "input_files": [],
+        "frame_first": null,
+        "frame_last": null
+      },
+      "source": "./live.png",
+      "source_sha256": "16870624c7485c66414b0ce874d5f273aaccd592403d610bd83e6b9fc47fd1e8",
+      "native_dimensions": [
+        1920,
+        1088
+      ],
+      "delivery": "../../../public/promo/live.webp",
+      "delivery_sha256": "bc678eae55303c46123aa4cab44953ec133ee7911eb08b6bc5583365cd2b79da",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "conversion": {
+        "crop": {
+          "left": 0,
+          "top": 4,
+          "width": 1920,
+          "height": 1080
+        },
+        "webp_quality": 93,
+        "effort": 6,
+        "upscaled": false
+      },
+      "reference": null,
+      "label": "Obraz stworzony z pomocą AI."
+    },
+    {
+      "art": "history",
+      "generation_id": "g_mupbkjul2a85ed",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "generated_at": "2026-10-01T09:17:21.885Z",
+      "cost_usd": 0.16102,
+      "prompt": "Create a completely new photographic advertising image for HEXART, using the attached references only where requested. This is an illustrative advertising image. Do not imply that invented locations, equipment or people are real HEXART facilities or client projects.\n\nLandscape 16:9. Compose for a website with a translucent upload panel occupying the left 35–40% of the frame. Keep this left region visually quiet, with dark natural materials and soft reflected light, not a flat black void. Reserve a quiet dark top-right region for a contact card. Reserve the lower right half for white headline and body text. Place the main subject in the middle-right, around 70% of frame width and 40% of frame height. Keep the essential subject readable in a square crop centered on the right-hand scene. Do not draw any website panels, borders or overlays into the image.\n\nCinematic low-key photography, warm golden side light, graphite and onyx shadows with visible detail, restrained natural colors, subtle gold reflections inspired by #D1AE53, nuanced material textures, believable optics, fine film grain and generous negative space. Clear original detail at the requested output dimensions. Gold is an accent, not a color cast covering everything.\n\nAvoid text, logos, watermarks, fake dashboards, neon, glowing circuit lines, holographic interfaces, decorative hexagons, generic humanoid robots, stock-photo smiles, plastic skin, excessive bokeh, oversaturated HDR, distorted anatomy and implausible equipment. No large bright light sources behind future text or the upload panel.\n\nScene: an atmospheric, plausible interactive cultural installation in a dark exhibition room. A physical display surface and a projection of a restrained abstract landscape combine with subtle visible sound hardware. The installation is shown as a concept, without claiming to reproduce a real museum or a historical event. Use believable projection light, materials and room scale. No floating artifacts, invented archaeological finds, readable plaques or decorative technology effects. Main installation is placed on the middle-right.",
+      "params": {
+        "aspect_ratio": "16:9",
+        "size": "1920x1088",
+        "quality": "max",
+        "background": "opaque",
+        "n": 1,
+        "provider": null,
+        "provider_options": null,
+        "input_files": [],
+        "frame_first": null,
+        "frame_last": null
+      },
+      "source": "./history.png",
+      "source_sha256": "2639e4ec27a64342d37ddf04dc272e0fa57f70be45482b75622b45170cc5b080",
+      "native_dimensions": [
+        1920,
+        1088
+      ],
+      "delivery": "../../../public/promo/history.webp",
+      "delivery_sha256": "9bbd3b9bca7b8ef7e22701e9f711796a540d849592898a35933dc8c3fef1396b",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "conversion": {
+        "crop": {
+          "left": 0,
+          "top": 4,
+          "width": 1920,
+          "height": 1080
+        },
+        "webp_quality": 93,
+        "effort": 6,
+        "upscaled": false
+      },
+      "reference": null,
+      "label": "Obraz stworzony z pomocą AI."
+    },
+    {
+      "art": "ecommerce",
+      "generation_id": "g_mupbe41h1efb74",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "generated_at": "2026-10-01T09:12:28.943Z",
+      "cost_usd": 0.160995,
+      "prompt": "Create a completely new photographic advertising image for HEXART, using the attached references only where requested. This is an illustrative advertising image. Do not imply that invented locations, equipment or people are real HEXART facilities or client projects.\n\nLandscape 16:9. Compose for a website with a translucent upload panel occupying the left 35–40% of the frame. Keep this left region visually quiet, with dark natural materials and soft reflected light, not a flat black void. Reserve a quiet dark top-right region for a contact card. Reserve the lower right half for white headline and body text. Place the main subject in the middle-right, around 70% of frame width and 40% of frame height. Keep the essential subject readable in a square crop centered on the right-hand scene. Do not draw any website panels, borders or overlays into the image.\n\nCinematic low-key photography, warm golden side light, graphite and onyx shadows with visible detail, restrained natural colors, subtle gold reflections inspired by #D1AE53, nuanced material textures, believable optics, fine film grain and generous negative space. Clear original detail at the requested output dimensions. Gold is an accent, not a color cast covering everything.\n\nAvoid text, logos, watermarks, fake dashboards, neon, glowing circuit lines, holographic interfaces, decorative hexagons, generic humanoid robots, stock-photo smiles, plastic skin, excessive bokeh, oversaturated HDR, distorted anatomy and implausible equipment. No large bright light sources behind future text or the upload panel.\n\nScene: a carefully arranged product-pricing workspace with several simple unbranded packages, a small calculator and a laptop viewed from an angle. Prices and labels remain non-readable; do not generate false real-world prices or company names. Suggest comparing options and retaining human control through orderly physical objects rather than a glowing market chart or miniature fantasy city. Warm side light on packaging edges; subdued dark desk in the lower-right.",
+      "params": {
+        "aspect_ratio": "16:9",
+        "size": "1920x1088",
+        "quality": "max",
+        "background": "opaque",
+        "n": 1,
+        "provider": null,
+        "provider_options": null,
+        "input_files": [],
+        "frame_first": null,
+        "frame_last": null
+      },
+      "source": "./ecommerce.png",
+      "source_sha256": "e20ec9b8fed360a7747a3426652328fafb4f6ed09646cd87175687437ca69455",
+      "native_dimensions": [
+        1920,
+        1088
+      ],
+      "delivery": "../../../public/promo/ecommerce.webp",
+      "delivery_sha256": "846963c095365be638a3b27f9dc1c56659c05d8e1d1c95d81c7c55266963da0a",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "conversion": {
+        "crop": {
+          "left": 0,
+          "top": 4,
+          "width": 1920,
+          "height": 1080
+        },
+        "webp_quality": 93,
+        "effort": 6,
+        "upscaled": false
+      },
+      "reference": null,
+      "label": "Obraz stworzony z pomocą AI."
+    },
+    {
+      "art": "branding",
+      "generation_id": "g_mupbib8fd4ab7f",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "generated_at": "2026-10-01T09:15:43.739Z",
+      "cost_usd": 0.16104,
+      "prompt": "Create a completely new photographic advertising image for HEXART, using the attached references only where requested. This is an illustrative advertising image. Do not imply that invented locations, equipment or people are real HEXART facilities or client projects.\n\nLandscape 16:9. Compose for a website with a translucent upload panel occupying the left 35–40% of the frame. Keep this left region visually quiet, with dark natural materials and soft reflected light, not a flat black void. Reserve a quiet dark top-right region for a contact card. Reserve the lower right half for white headline and body text. Place the main subject in the middle-right, around 70% of frame width and 40% of frame height. Keep the essential subject readable in a square crop centered on the right-hand scene. Do not draw any website panels, borders or overlays into the image.\n\nCinematic low-key photography, warm golden side light, graphite and onyx shadows with visible detail, restrained natural colors, subtle gold reflections inspired by #D1AE53, nuanced material textures, believable optics, fine film grain and generous negative space. Clear original detail at the requested output dimensions. Gold is an accent, not a color cast covering everything.\n\nAvoid text, logos, watermarks, fake dashboards, neon, glowing circuit lines, holographic interfaces, decorative hexagons, generic humanoid robots, stock-photo smiles, plastic skin, excessive bokeh, oversaturated HDR, distorted anatomy and implausible equipment. No large bright light sources behind future text or the upload panel.\n\nScene: a graphic designer's material study on a dark worktable: quality paper samples, a restrained color swatch set, blank packaging mockups and a simple printed geometric layout without recognizable logos or readable text. Consistent material and color decisions across the objects show visual identity as a system. No fabricated HEXART logo, client logo or invented brandbook cover. Objects sit on the middle-right, with quiet tactile detail rather than a gold object on every surface.",
+      "params": {
+        "aspect_ratio": "16:9",
+        "size": "1920x1088",
+        "quality": "max",
+        "background": "opaque",
+        "n": 1,
+        "provider": null,
+        "provider_options": null,
+        "input_files": [],
+        "frame_first": null,
+        "frame_last": null
+      },
+      "source": "./branding.png",
+      "source_sha256": "08d8978e37b2a46da951d7604232d5cec28cb16baec87cf40109bc61a9ae1181",
+      "native_dimensions": [
+        1920,
+        1088
+      ],
+      "delivery": "../../../public/promo/branding.webp",
+      "delivery_sha256": "65acf568e54690274c93d0dd1cf4b0f11937a9054b43938f8f63d30214c70779",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "conversion": {
+        "crop": {
+          "left": 0,
+          "top": 4,
+          "width": 1920,
+          "height": 1080
+        },
+        "webp_quality": 93,
+        "effort": 6,
+        "upscaled": false
+      },
+      "reference": null,
+      "label": "Obraz stworzony z pomocą AI."
+    },
+    {
+      "art": "genai",
+      "generation_id": "g_mupbk6ah080f70",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "generated_at": "2026-10-01T09:17:07.782Z",
+      "cost_usd": 0.161045,
+      "prompt": "Create a completely new photographic advertising image for HEXART, using the attached references only where requested. This is an illustrative advertising image. Do not imply that invented locations, equipment or people are real HEXART facilities or client projects.\n\nLandscape 16:9. Compose for a website with a translucent upload panel occupying the left 35–40% of the frame. Keep this left region visually quiet, with dark natural materials and soft reflected light, not a flat black void. Reserve a quiet dark top-right region for a contact card. Reserve the lower right half for white headline and body text. Place the main subject in the middle-right, around 70% of frame width and 40% of frame height. Keep the essential subject readable in a square crop centered on the right-hand scene. Do not draw any website panels, borders or overlays into the image.\n\nCinematic low-key photography, warm golden side light, graphite and onyx shadows with visible detail, restrained natural colors, subtle gold reflections inspired by #D1AE53, nuanced material textures, believable optics, fine film grain and generous negative space. Clear original detail at the requested output dimensions. Gold is an accent, not a color cast covering everything.\n\nAvoid text, logos, watermarks, fake dashboards, neon, glowing circuit lines, holographic interfaces, decorative hexagons, generic humanoid robots, stock-photo smiles, plastic skin, excessive bokeh, oversaturated HDR, distorted anatomy and implausible equipment. No large bright light sources behind future text or the upload panel.\n\nScene: a precise art-direction workspace with a small group of reference prints showing the same generic subject in a consistent photographic style, a few material samples and a drawing tablet. Coherence across the printed images is the central idea. All images are generic and unbranded, with natural subject geometry and no readable invented text. The reference prints occupy the middle-right, while the surrounding table remains calm. No glowing AI brain, robot artist, magic brush or floating images.",
+      "params": {
+        "aspect_ratio": "16:9",
+        "size": "1920x1088",
+        "quality": "max",
+        "background": "opaque",
+        "n": 1,
+        "provider": null,
+        "provider_options": null,
+        "input_files": [],
+        "frame_first": null,
+        "frame_last": null
+      },
+      "source": "./genai.png",
+      "source_sha256": "f92bfb6ae4c066b7aeef52ea0a27af31f0c55764af6c6af5403b31ec4632d9cb",
+      "native_dimensions": [
+        1920,
+        1088
+      ],
+      "delivery": "../../../public/promo/genai.webp",
+      "delivery_sha256": "a902b808d8de6943f684c0c258dfa6d17182cb2b8d43d6d84d3ee8912e6ad63c",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "conversion": {
+        "crop": {
+          "left": 0,
+          "top": 4,
+          "width": 1920,
+          "height": 1080
+        },
+        "webp_quality": 93,
+        "effort": 6,
+        "upscaled": false
+      },
+      "reference": null,
+      "label": "Obraz stworzony z pomocą AI."
+    },
+    {
+      "art": "contact",
+      "generation_id": "g_mupblyrm6abf72",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "generated_at": "2026-10-01T09:18:34.694Z",
+      "cost_usd": 0.16105,
+      "prompt": "Create a completely new photographic advertising image for HEXART, using the attached references only where requested. This is an illustrative advertising image. Do not imply that invented locations, equipment or people are real HEXART facilities or client projects.\n\nLandscape 16:9. Compose for a website with a translucent upload panel occupying the left 35–40% of the frame. Keep this left region visually quiet, with dark natural materials and soft reflected light, not a flat black void. Reserve a quiet dark top-right region for a contact card. Reserve the lower right half for white headline and body text. Place the main subject in the middle-right, around 70% of frame width and 40% of frame height. Keep the essential subject readable in a square crop centered on the right-hand scene. Do not draw any website panels, borders or overlays into the image.\n\nCinematic low-key photography, warm golden side light, graphite and onyx shadows with visible detail, restrained natural colors, subtle gold reflections inspired by #D1AE53, nuanced material textures, believable optics, fine film grain and generous negative space. Clear original detail at the requested output dimensions. Gold is an accent, not a color cast covering everything.\n\nAvoid text, logos, watermarks, fake dashboards, neon, glowing circuit lines, holographic interfaces, decorative hexagons, generic humanoid robots, stock-photo smiles, plastic skin, excessive bokeh, oversaturated HDR, distorted anatomy and implausible equipment. No large bright light sources behind future text or the upload panel.\n\nScene: a restrained still life showing engineering precision and artistic craft together: a plausible technical measuring tool, a cinema lens, a clean material sample and a small sketchbook on one dark studio worktable. Each object has a physical purpose and accurate geometry. Arrange the group on the middle-right as one coherent scene, rather than a collage of four departments. Fine tactile detail, restrained gold reflections, calm confident mood. No slogans, logos, decorative circuitry or invented project trophies.",
+      "params": {
+        "aspect_ratio": "16:9",
+        "size": "1920x1088",
+        "quality": "max",
+        "background": "opaque",
+        "n": 1,
+        "provider": null,
+        "provider_options": null,
+        "input_files": [],
+        "frame_first": null,
+        "frame_last": null
+      },
+      "source": "./contact.png",
+      "source_sha256": "7891e6af5a72638213e2c5c9c0037c5b7ddebd68ace684cc4e7bf6f2a144b9b4",
+      "native_dimensions": [
+        1920,
+        1088
+      ],
+      "delivery": "../../../public/promo/contact.webp",
+      "delivery_sha256": "e4961539c739412e26af63900d8eb8b41a9e501d0b76821caaea04c62e2c8191",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "conversion": {
+        "crop": {
+          "left": 0,
+          "top": 4,
+          "width": 1920,
+          "height": 1080
+        },
+        "webp_quality": 93,
+        "effort": 6,
+        "upscaled": false
+      },
+      "reference": null,
+      "label": "Obraz stworzony z pomocą AI."
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowUpRight } from 'lucide-react';
+import InstallButton from './InstallButton';
 
 const LINKS = [
   { label: 'hexart.pl', href: 'https://hexart.pl', external: true },
@@ -42,6 +43,7 @@ export default function SiteFooter({ panel = false }: { panel?: boolean }) {
               {link.external && <ArrowUpRight className="w-3 h-3" />}
             </a>
           ))}
+          <InstallButton />
         </nav>
       </div>
     </footer>
