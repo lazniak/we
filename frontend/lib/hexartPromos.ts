@@ -144,7 +144,7 @@ export const HEXART_PROMOS: Promo[] = [
     title: 'Nie wiesz, co oddać AI?',
     body: 'Doradzimy, co zautomatyzować, a co zostawić. W produkcji od 2006 roku, od 2020 jako HEXART.',
     cta: 'Umów konsultację',
-    href: 'https://hexart.pl/lp/konsulting-ai',
+    href: 'https://hexart.pl/rezerwacja',
     art: 'paul',
   },
   {
