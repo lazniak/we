@@ -7,8 +7,8 @@ export const CONTACT = {
   role: 'HEXART Studio · film, XR, systemy AI',
   phoneDisplay: '+48 662 016 430',
   phoneTel: '+48662016430',
-  photo: '/photo-paul-v2.jpg',
-  photoStyle: { objectFit: 'contain', objectPosition: 'center bottom', transform: 'scale(0.78)', transformOrigin: 'center bottom' },
+  photo: '/photo-paul-v3.jpg',
+  photoStyle: { objectFit: 'cover', objectPosition: '50% 45%' },
   /**
    * Where "Umów rozmowę" leads. Set NEXT_PUBLIC_BOOKING_URL to the real
    * calendar; the default is the studio booking page.
