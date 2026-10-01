@@ -60,7 +60,7 @@ export const PROMO_ART: Record<PromoArtKey, ArtMeta> = {
   contact: { ai: true },
 };
 
-export const AI_IMAGE_LABEL = 'Obraz wygenerowany przez AI.';
+export const AI_IMAGE_LABEL = 'Obraz stworzony z pomocą AI.';
 
 export function promoArtSrc(art: PromoArtKey) {
   return `/promo/${art}.webp`;

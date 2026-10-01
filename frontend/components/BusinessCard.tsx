@@ -35,6 +35,7 @@ export default function BusinessCard() {
                 <img
                   src={CONTACT.photo}
                   alt={CONTACT.name}
+                  style={CONTACT.photoStyle}
                   className="w-full h-full object-cover"
                   draggable={false}
                 />

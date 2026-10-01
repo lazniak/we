@@ -1,6 +1,6 @@
 # Promo artwork provenance
 
-2026-10-01. Film and automation backgrounds generated with the built-in Codex image generator. Original PNGs are retained in this folder with their provenance metadata. WebP delivery versions live in public/promo. They are generic illustrations, not documentary pictures of HEXART facilities or clients. Display label: "Obraz wygenerowany przez AI."
+2026-10-01. Film and automation backgrounds generated with the built-in Codex image generator. Original PNGs are retained in this folder with their provenance metadata. WebP delivery versions live in public/promo. They are generic illustrations, not documentary pictures of HEXART facilities or clients. Display label: "Obraz stworzony z pomocą AI."
 
 Composition brief: wide 16:9 cinematic photography, dark calm left 35% for the translucent upload panel; main subject at 72% width, 45% height; calm bottom for promotional copy and top-right for contact card. Warm amber side key, graphite shadows, realistic craft and materials, fine film grain. No logos, text, UI, neon or imaginary client products.
 

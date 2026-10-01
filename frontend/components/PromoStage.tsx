@@ -303,6 +303,7 @@ function ContactCard() {
             <img
               src={CONTACT.photo}
               alt={CONTACT.name}
+              style={CONTACT.photoStyle}
               draggable={false}
               onError={() => setPhotoOk(false)}
               className="absolute inset-0 h-full w-full object-cover"
