@@ -60,8 +60,13 @@ export default function PwaProvider({ children }: { children: React.ReactNode })
     let registration: ServiceWorkerRegistration | undefined;
     let disposed = false;
     const updateWorker = () => { void registration?.update().catch(() => {}); };
+    // Development chunks keep fixed names, so a worker would pin stale code.
+    if ('serviceWorker' in navigator && process.env.NODE_ENV !== 'production') {
+      void navigator.serviceWorker.getRegistrations()
+        .then((all) => Promise.all(all.map((worker) => worker.unregister()))).catch(() => {});
+    }
     // Updates never reload the page: an upload may be in progress.
-    if ('serviceWorker' in navigator && window.isSecureContext) {
+    if ('serviceWorker' in navigator && window.isSecureContext && process.env.NODE_ENV === 'production') {
       void navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
         .then((value) => {
           if (disposed) return;
