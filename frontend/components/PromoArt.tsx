@@ -44,7 +44,7 @@ export const PROMO_ART: Record<PromoArtKey, ArtMeta> = {
   automation: { ai: true },
   voice: { ai: true },
   rag: { ai: true },
-  jetson: { ai: false, focus: '50% 48%', zoom: 3 },
+  jetson: { ai: false, focus: '50% 48%', zoom: 4 },
   wojna1939: { ai: true, focus: '50% 55%' },
   film: { ai: true },
   video: { ai: true },
